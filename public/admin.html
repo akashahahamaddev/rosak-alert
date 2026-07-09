@@ -153,6 +153,16 @@
               </label>
             </div>
 
+            <div class="form-grid">
+              <label for="aboutTitle">Tajuk Info (About Us)
+                <input type="text" id="aboutTitle" v-model="settingsForm.aboutTitle" required placeholder="cth: Tentang RosakAlert" />
+              </label>
+
+              <label for="aboutContent">Kandungan Info (About Us)
+                <textarea id="aboutContent" v-model="settingsForm.aboutContent" rows="3" required placeholder="Keterangan mengenai perkhidmatan aplikasi aduan..."></textarea>
+              </label>
+            </div>
+
             <label>Latar Belakang Utama (Root Screen)
               <div class="segmented-control">
                 <button type="button" :class="{ active: settingsForm.backgroundType === 'default' }" @click="settingsForm.backgroundType = 'default'">Default Grid</button>
@@ -346,13 +356,17 @@
           backgroundType: "default",
           backgroundCss: "",
           backgroundImage: "",
-          languages: ["ms"]
+          languages: ["ms"],
+          aboutTitle: "",
+          aboutContent: ""
         });
         const settingsForm = reactive({
           appName: "",
           backgroundType: "default",
           backgroundCss: "",
-          languages: ["ms"]
+          languages: ["ms"],
+          aboutTitle: "",
+          aboutContent: ""
         });
         const settingsError = ref("");
         const settingsSuccess = ref("");
@@ -403,6 +417,8 @@
               settingsForm.backgroundType = data.backgroundType;
               settingsForm.backgroundCss = data.backgroundCss;
               settingsForm.languages = data.languages || ["ms"];
+              settingsForm.aboutTitle = data.aboutTitle || "";
+              settingsForm.aboutContent = data.aboutContent || "";
               
               applyBackground(data);
               document.title = `${data.appName} — Panel Pentadbir`;
@@ -484,6 +500,8 @@
             fd.append("backgroundType", settingsForm.backgroundType);
             fd.append("backgroundCss", settingsForm.backgroundCss);
             fd.append("languages", JSON.stringify(settingsForm.languages));
+            fd.append("aboutTitle", settingsForm.aboutTitle);
+            fd.append("aboutContent", settingsForm.aboutContent);
             
             if (logoFile.value) fd.append("logo", logoFile.value);
             if (bgFile.value) fd.append("backgroundImage", bgFile.value);

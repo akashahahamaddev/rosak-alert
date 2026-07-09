@@ -101,13 +101,20 @@ if (settingsCount.count === 0) {
     { key: "backgroundType", value: "default" }, // default, css, image
     { key: "backgroundCss", value: "linear-gradient(135deg, #0f1419 0%, #1a2029 100%)" },
     { key: "backgroundImage", value: "" },
-    { key: "languages", value: JSON.stringify(["ms", "en"]) } // allow both ms and en by default
+    { key: "languages", value: JSON.stringify(["ms", "en"]) }, // allow both ms and en by default
+    { key: "aboutTitle", value: "Tentang RosakAlert" },
+    { key: "aboutContent", value: "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera." }
   ];
   const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
   for (const s of defaultSettings) {
     stmt.run(s.key, s.value);
   }
   console.log("[SEED] Tetapan lalai dicipta.");
+} else {
+  // Ensure new keys exist if DB was already seeded
+  const checkStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+  checkStmt.run("aboutTitle", "Tentang RosakAlert");
+  checkStmt.run("aboutContent", "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera.");
 }
 
 const STATUSES = ["baru", "dalam_proses", "selesai"];
@@ -232,12 +239,14 @@ const uploadSettings = upload.fields([
 ]);
 
 app.post("/api/settings", authMiddleware, uploadSettings, (req, res) => {
-  const { appName, backgroundType, backgroundCss, languages } = req.body;
+  const { appName, backgroundType, backgroundCss, languages, aboutTitle, aboutContent } = req.body;
   const stmt = db.prepare("UPDATE settings SET value = ? WHERE key = ?");
 
   if (appName !== undefined) stmt.run(appName.trim(), "appName");
   if (backgroundType !== undefined) stmt.run(backgroundType, "backgroundType");
   if (backgroundCss !== undefined) stmt.run(backgroundCss, "backgroundCss");
+  if (aboutTitle !== undefined) stmt.run(aboutTitle.trim(), "aboutTitle");
+  if (aboutContent !== undefined) stmt.run(aboutContent.trim(), "aboutContent");
   if (languages !== undefined) {
     try {
       const parsedLangs = JSON.parse(languages);

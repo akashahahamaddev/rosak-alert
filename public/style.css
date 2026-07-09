@@ -973,4 +973,36 @@ input:focus, select:focus, textarea:focus {
   margin-top: 6px;
 }
 
+/* --- Hero Section & Bold Typography --- */
+.hero-section {
+  text-align: center;
+  margin-bottom: 28px;
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.hero-title {
+  font-size: 38px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 30%, var(--accent-hi) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0 0 6px 0;
+  letter-spacing: -1px;
+}
+.hero-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 480px;
+  margin: 0 auto;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.hero-divider {
+  width: 48px;
+  height: 3px;
+  background: var(--accent);
+  margin: 16px auto 0 auto;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(55, 192, 127, 0.4);
+}
+
 

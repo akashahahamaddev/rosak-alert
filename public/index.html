@@ -22,6 +22,7 @@
           <button :class="['btn-lang', lang === 'ms' && 'active']" @click="setLang('ms')">MS</button>
           <button :class="['btn-lang', lang === 'en' && 'active']" @click="setLang('en')">EN</button>
         </div>
+        <a class="link-btn" href="#" @click.prevent="showAboutModal = true"><i class="fa-solid fa-circle-info"></i> {{ t('aboutBtn') }}</a>
         <a class="link-btn" href="/admin.html"><i class="fa-solid fa-user-lock"></i> {{ t('adminPanel') }}</a>
       </div>
     </header>
@@ -42,9 +43,20 @@
 
       <!-- Main reporting flow -->
       <div v-else>
+        <!-- Hero Typography Section -->
+        <div class="hero-section" v-if="!preview">
+          <h1 class="hero-title">{{ settings.appName }}</h1>
+          <p class="hero-subtitle">
+            {{ lang === 'en' 
+              ? 'Fast & seamless college and residence facility damage reporting system' 
+              : 'Sistem pelaporan kerosakan fasiliti & kediaman kolej dengan pantas dan mudah' }}
+          </p>
+          <div class="hero-divider"></div>
+        </div>
+
         <!-- Step 1: Image Dropzone/Selector (if no image is selected yet) -->
         <div class="card dropzone-card" v-if="!preview">
-          <h2>{{ t('title') }}</h2>
+          <h2><i class="fa-solid fa-camera"></i> {{ t('title') }}</h2>
           <p class="muted">{{ t('subtitle') }}</p>
           
           <div 
@@ -126,6 +138,22 @@
         </div>
       </div>
     </main>
+
+    <!-- Modal About Us -->
+    <div class="modal-overlay" v-if="showAboutModal" @click.self="showAboutModal = false">
+      <div class="card modal-card">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-circle-info"></i> {{ settings.aboutTitle || t('aboutBtn') }}</h2>
+          <button type="button" class="btn-close-modal" @click="showAboutModal = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="about-desc-content" style="white-space: pre-wrap; font-size: 14.5px; line-height: 1.6; color: var(--text); margin-bottom: 24px; margin-top: 10px;">
+          {{ settings.aboutContent }}
+        </p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" @click="showAboutModal = false">Tutup</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -133,6 +161,7 @@
     const TRANSLATIONS = {
       ms: {
         adminPanel: "Panel Pentadbir",
+        aboutBtn: "Info Sistem",
         title: "Lapor Kerosakan",
         subtitle: "Langkah 1: Snap atau pilih gambar kerosakan untuk mula.",
         dropzoneMain: "Klik untuk snap / pilih gambar",
@@ -170,6 +199,7 @@
       },
       en: {
         adminPanel: "Admin Panel",
+        aboutBtn: "About Us",
         title: "Report Damage",
         subtitle: "Step 1: Snap or select a damage photo to start.",
         dropzoneMain: "Click to snap / select photo",
@@ -220,6 +250,7 @@
         const submitted = ref(false);
         const result = ref({});
         const fileInput = ref(null);
+        const showAboutModal = ref(false);
 
         // Branding and dynamic settings
         const settings = ref({
@@ -228,7 +259,9 @@
           backgroundType: "default",
           backgroundCss: "linear-gradient(135deg, #0f1419 0%, #1a2029 100%)",
           backgroundImage: "",
-          languages: ["ms", "en"]
+          languages: ["ms", "en"],
+          aboutTitle: "",
+          aboutContent: ""
         });
         const lang = ref("ms");
 
@@ -462,7 +495,8 @@
           onDrop,
           resetImage,
           submit,
-          reset
+          reset,
+          showAboutModal
         };
       },
     }).mount("#app");
