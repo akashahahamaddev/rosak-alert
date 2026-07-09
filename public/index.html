@@ -54,50 +54,53 @@
           <div class="hero-divider"></div>
         </div>
 
-        <!-- Banner Carousel Section -->
-        <div class="carousel-container" v-if="!preview && carouselImages.length > 0">
-          <div class="carousel-track" :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
-            <div class="carousel-slide" v-for="(img, idx) in carouselImages" :key="idx">
-              <img :src="img" class="carousel-img" alt="Banner" />
+        <!-- Step 1 layout wrapper (Side-by-side on desktop) -->
+        <div class="step1-container" v-if="!preview">
+          <!-- Banner Carousel Section -->
+          <div class="carousel-container" v-if="carouselImages.length > 0">
+            <div class="carousel-track" :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
+              <div class="carousel-slide" v-for="(img, idx) in carouselImages" :key="idx">
+                <img :src="img" class="carousel-img" alt="Banner" />
+              </div>
+            </div>
+            <div class="carousel-dots" v-if="carouselImages.length > 1">
+              <span 
+                v-for="(img, idx) in carouselImages" 
+                :key="idx" 
+                :class="['dot', currentSlide === idx && 'active']"
+                @click="currentSlide = idx"
+              ></span>
             </div>
           </div>
-          <div class="carousel-dots" v-if="carouselImages.length > 1">
-            <span 
-              v-for="(img, idx) in carouselImages" 
-              :key="idx" 
-              :class="['dot', currentSlide === idx && 'active']"
-              @click="currentSlide = idx"
-            ></span>
-          </div>
-        </div>
 
-        <!-- Step 1: Image Dropzone/Selector (if no image is selected yet) -->
-        <div class="card dropzone-card" v-if="!preview">
-          <h2><i class="fa-solid fa-camera"></i> {{ t('title') }}</h2>
-          <p class="muted">{{ t('subtitle') }}</p>
-          
-          <div 
-            :class="['dropzone', dragOver && 'dragover']"
-            @dragover.prevent="dragOver = true"
-            @dragleave.prevent="dragOver = false"
-            @drop.prevent="onDrop"
-            @click="$refs.fileInput.click()"
-          >
-            <div class="dropzone-content">
-              <span class="icon"><i class="fa-solid fa-camera fa-2x"></i></span>
-              <p class="main-text">{{ t('dropzoneMain') }}</p>
-              <p class="sub-text">{{ t('dropzoneSub') }}</p>
+          <!-- Step 1: Image Dropzone/Selector (if no image is selected yet) -->
+          <div class="card dropzone-card">
+            <h2><i class="fa-solid fa-camera"></i> {{ t('title') }}</h2>
+            <p class="muted">{{ t('subtitle') }}</p>
+            
+            <div 
+              :class="['dropzone', dragOver && 'dragover']"
+              @dragover.prevent="dragOver = true"
+              @dragleave.prevent="dragOver = false"
+              @drop.prevent="onDrop"
+              @click="$refs.fileInput.click()"
+            >
+              <div class="dropzone-content">
+                <span class="icon"><i class="fa-solid fa-camera fa-2x"></i></span>
+                <p class="main-text">{{ t('dropzoneMain') }}</p>
+                <p class="sub-text">{{ t('dropzoneSub') }}</p>
+              </div>
+              <input 
+                type="file" 
+                ref="fileInput" 
+                accept="image/*" 
+                capture="environment" 
+                @change="onFile" 
+                style="display: none;" 
+              />
             </div>
-            <input 
-              type="file" 
-              ref="fileInput" 
-              accept="image/*" 
-              capture="environment" 
-              @change="onFile" 
-              style="display: none;" 
-            />
+            <p class="error" v-if="error">{{ error }}</p>
           </div>
-          <p class="error" v-if="error">{{ error }}</p>
         </div>
 
         <!-- Step 2: Split Layout (Preview + Details form) -->

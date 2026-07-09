@@ -1092,4 +1092,46 @@ input:focus, select:focus, textarea:focus {
   border-radius: 4px;
 }
 
+/* --- Step 1 Layout (Side-by-side on desktop) --- */
+.step1-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+}
+.step1-container .carousel-container {
+  margin: 0;
+}
+.step1-container .dropzone-card {
+  margin: 0;
+}
+
+@media (min-width: 900px) {
+  .step1-container {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 28px;
+    max-width: 1100px;
+    align-items: stretch;
+  }
+  .step1-container .carousel-container {
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .step1-container .dropzone-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: space-between;
+  }
+  .step1-container .dropzone-card .dropzone {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
+
 
