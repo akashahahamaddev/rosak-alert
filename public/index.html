@@ -12,7 +12,7 @@
       <div class="logo-wrapper">
         <img v-if="settings.appLogo" :src="settings.appLogo" class="app-logo" alt="Logo" />
         <span v-else class="app-icon">🛠️</span>
-        <h1>{{ settings.appName }}</h1>
+        <span class="app-title">{{ settings.appName }}</span>
       </div>
       
       <div class="topbar-right">
@@ -21,7 +21,7 @@
           <button :class="['btn-lang', lang === 'ms' && 'active']" @click="setLang('ms')">MS</button>
           <button :class="['btn-lang', lang === 'en' && 'active']" @click="setLang('en')">EN</button>
         </div>
-        <a class="link" href="/admin.html">{{ t('adminPanel') }} →</a>
+        <a class="link-btn" href="/admin.html">{{ t('adminPanel') }} →</a>
       </div>
     </header>
 

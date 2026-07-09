@@ -12,13 +12,16 @@
       <div class="logo-wrapper">
         <img v-if="settings.appLogo" :src="settings.appLogo" class="app-logo" alt="Logo" />
         <span v-else class="app-icon">🛠️</span>
-        <h1>{{ settings.appName }} · Pentadbir</h1>
+        <div class="brand-details">
+          <span class="app-title">{{ settings.appName }}</span>
+          <span class="admin-badge">PENTADBIR</span>
+        </div>
       </div>
       <div class="topbar-actions" v-if="isAuthenticated">
+        <a class="link-btn" href="/">← Borang Laporan</a>
         <button class="btn-logout" @click="logout">Keluar 🚪</button>
-        <a class="link" href="/">← Borang Laporan</a>
       </div>
-      <a class="link" href="/" v-else>← Borang Laporan</a>
+      <a class="link-btn" href="/" v-else>← Borang Laporan</a>
     </header>
 
     <!-- Admin dashboard container (only visible if logged in) -->
