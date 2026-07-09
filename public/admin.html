@@ -5,32 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RosakAlert — Panel Pentadbir</title>
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 <body>
   <div id="app">
     <header class="topbar">
       <div class="logo-wrapper">
         <img v-if="settings.appLogo" :src="settings.appLogo" class="app-logo" alt="Logo" />
-        <span v-else class="app-icon">🛠️</span>
+        <span v-else class="app-icon"><i class="fa-solid fa-wrench"></i></span>
         <div class="brand-details">
           <span class="app-title">{{ settings.appName }}</span>
           <span class="admin-badge">PENTADBIR</span>
         </div>
       </div>
       <div class="topbar-actions" v-if="isAuthenticated">
-        <a class="link-btn" href="/">← Borang Laporan</a>
-        <button class="btn-logout" @click="logout">Keluar 🚪</button>
+        <a class="link-btn" href="/"><i class="fa-solid fa-arrow-left"></i> Borang Laporan</a>
+        <button class="btn-logout" @click="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
       </div>
-      <a class="link-btn" href="/" v-else>← Borang Laporan</a>
+      <a class="link-btn" href="/" v-else><i class="fa-solid fa-arrow-left"></i> Borang Laporan</a>
     </header>
 
     <!-- Admin dashboard container (only visible if logged in) -->
     <main class="wrap wide" v-if="isAuthenticated">
       <!-- Tabs Selector -->
       <div class="tabs">
-        <button :class="['tab-btn', activeTab === 'reports' && 'active']" @click="activeTab = 'reports'">📋 Laporan</button>
-        <button :class="['tab-btn', activeTab === 'recipients' && 'active']" @click="activeTab = 'recipients'">👥 Penerima Notifikasi</button>
-        <button :class="['tab-btn', activeTab === 'settings' && 'active']" @click="activeTab = 'settings'">⚙️ Tetapan Sistem</button>
+        <button :class="['tab-btn', activeTab === 'reports' && 'active']" @click="activeTab = 'reports'"><i class="fa-solid fa-clipboard-list"></i> Laporan</button>
+        <button :class="['tab-btn', activeTab === 'recipients' && 'active']" @click="activeTab = 'recipients'"><i class="fa-solid fa-users"></i> Penerima Notifikasi</button>
+        <button :class="['tab-btn', activeTab === 'settings' && 'active']" @click="activeTab = 'settings'"><i class="fa-solid fa-sliders"></i> Tetapan Sistem</button>
       </div>
 
       <!-- Tab 1: Reports Management -->
@@ -77,7 +78,11 @@
                 <span class="ref-sm">{{ r.ref }}</span>
                 <span :class="['badge', r.status]">{{ label(r.status) }}</span>
               </div>
-              <p class="loc">📍 {{ r.building }}<span v-if="r.floor">, {{ r.floor }}</span><span v-if="r.room">, {{ r.room }}</span></p>
+              <p class="loc">
+                <i class="fa-solid fa-location-dot"></i> Blok {{ r.building }}
+                <span v-if="r.floor"> · Aras {{ r.floor }}</span>
+                <span v-if="r.room"> · Bilik/Kawasan {{ r.room }}</span>
+              </p>
               <p class="cat" v-if="r.category">{{ r.category }}</p>
               <p class="desc" v-if="r.description">{{ r.description }}</p>
               <p class="meta">{{ r.reporter || 'Tanpa nama' }} · {{ r.created_at }}</p>
@@ -89,12 +94,12 @@
                 </select>
                 
                 <button type="button" class="btn-print" @click="printReport(r)">
-                  🖨️ Cetak
+                  <i class="fa-solid fa-print"></i> Cetak
                 </button>
 
                 <div class="notify-share-block">
                   <button type="button" class="btn-share-toggle" @click="toggleShareMenu(r.id)">
-                    📢 Makluman <span class="chevron-arrow">▼</span>
+                    <i class="fa-solid fa-bullhorn"></i> Makluman <span class="chevron-arrow">▼</span>
                   </button>
                   
                   <div class="share-dropdown" v-if="activeShareReportId === r.id">
@@ -103,13 +108,13 @@
                       <div class="share-recipient-row" v-for="rec in recipients" :key="rec.id">
                         <span class="rec-name">{{ rec.name }}</span>
                         <div class="share-btns">
-                          <a class="share-btn wa" :href="getWhatsAppLink(rec.phone, r)" target="_blank" title="WhatsApp">🟢 WA</a>
-                          <a class="share-btn mail" :href="getEmailLink(rec.email, r)" target="_blank" title="E-mel">✉️ E-mel</a>
+                          <a class="share-btn wa" :href="getWhatsAppLink(rec.phone, r)" target="_blank" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i> WA</a>
+                          <a class="share-btn mail" :href="getEmailLink(rec.email, r)" target="_blank" title="E-mel"><i class="fa-solid fa-envelope"></i> E-mel</a>
                         </div>
                       </div>
                     </div>
                     <div class="share-empty" v-else>
-                      Tiada penerima. <a href="#" @click.prevent="activeTab = 'settings'; activeShareReportId = null;">Tambah penerima</a>
+                      Tiada penerima. <a href="#" @click.prevent="activeTab = 'recipients'; activeShareReportId = null;">Tambah penerima</a>
                     </div>
                   </div>
                 </div>
@@ -123,7 +128,7 @@
       <!-- Tab 2: System Settings -->
       <div v-else-if="activeTab === 'settings'" class="settings-tab-wrapper">
         <section class="card settings-section">
-          <h2>⚙️ Tetapan Sistem & Jenama</h2>
+          <h2><i class="fa-solid fa-sliders"></i> Tetapan Sistem & Jenama</h2>
           <p class="muted">Kustomkan identiti, skema latar belakang, dan bahasa aplikasi aduan anda.</p>
 
           <form @submit.prevent="saveSettings">
@@ -136,10 +141,10 @@
                 <div class="logo-setting-container-v2">
                   <div class="logo-preview-box" v-if="settings.appLogo || tempLogoPreview">
                     <img :src="tempLogoPreview || settings.appLogo" class="logo-preview-img-circular" alt="Logo" />
-                    <button type="button" class="btn-clear-asset-sm" @click="clearLogoAsset">Buang Logo ❌</button>
+                    <button type="button" class="btn-clear-asset-sm" @click="clearLogoAsset">Buang Logo <i class="fa-solid fa-xmark"></i></button>
                   </div>
                   <div class="upload-trigger-row">
-                    <button type="button" class="btn-upload-trigger" @click="$refs.logoInput.click()">📁 Pilih Gambar Logo...</button>
+                    <button type="button" class="btn-upload-trigger" @click="$refs.logoInput.click()"><i class="fa-solid fa-image"></i> Pilih Gambar Logo...</button>
                     <span class="selected-filename" v-if="logoFile">{{ logoFile.name }}</span>
                     <span class="selected-filename empty" v-else>Tiada fail dipilih</span>
                   </div>
@@ -168,10 +173,10 @@
                 <div class="bg-setting-container-v2">
                   <div class="bg-preview-box" v-if="settings.backgroundImage || tempBgPreview">
                     <img :src="tempBgPreview || settings.backgroundImage" class="bg-preview-img-rect" alt="Latar Belakang" />
-                    <button type="button" class="btn-clear-asset-sm" @click="clearBgImageAsset">Buang Gambar ❌</button>
+                    <button type="button" class="btn-clear-asset-sm" @click="clearBgImageAsset">Buang Gambar <i class="fa-solid fa-xmark"></i></button>
                   </div>
                   <div class="upload-trigger-row">
-                    <button type="button" class="btn-upload-trigger" @click="$refs.bgInput.click()">🖼️ Pilih Fail Gambar...</button>
+                    <button type="button" class="btn-upload-trigger" @click="$refs.bgInput.click()"><i class="fa-solid fa-photo-film"></i> Pilih Fail Gambar...</button>
                     <span class="selected-filename" v-if="bgFile">{{ bgFile.name }}</span>
                     <span class="selected-filename empty" v-else>Tiada fail dipilih</span>
                   </div>
@@ -183,10 +188,10 @@
             <label>Bahasa Aktif
               <div class="segmented-checkboxes">
                 <button type="button" :class="{ active: settingsForm.languages.includes('ms') }" @click="toggleLanguage('ms')">
-                  <span class="indicator">✓</span> Bahasa Melayu (ms)
+                  <span class="indicator"><i class="fa-solid fa-check"></i></span> Bahasa Melayu (ms)
                 </button>
                 <button type="button" :class="{ active: settingsForm.languages.includes('en') }" @click="toggleLanguage('en')">
-                  <span class="indicator">✓</span> English (en)
+                  <span class="indicator"><i class="fa-solid fa-check"></i></span> English (en)
                 </button>
               </div>
               <p class="error" v-if="settingsForm.languages.length === 0">Sila pilih sekurang-kurangnya satu bahasa.</p>
@@ -207,25 +212,15 @@
       <!-- Tab 3: Recipients Settings -->
       <div v-else-if="activeTab === 'recipients'">
         <section class="card recipients-section">
-          <h2>👥 Penerima Laporan (WhatsApp & E-mel)</h2>
-          <p class="muted">Urus kontak penyelenggara kolej untuk menghantar notifikasi aduan kerosakan.</p>
-
-          <form @submit.prevent="addRecipient" class="recipient-form">
-            <div class="recipient-grid">
-              <label>Nama Kontak
-                <input type="text" v-model="recipientForm.name" required placeholder="cth: En. Ahmad (Elektrikal)" />
-              </label>
-              <label>Alamat E-mel
-                <input type="email" v-model="recipientForm.email" required placeholder="cth: ahmad@kolej.edu.my" />
-              </label>
-              <label>No. Telefon (WhatsApp)
-                <input type="text" v-model="recipientForm.phone" required placeholder="cth: +60123456789" />
-              </label>
-              <div class="btn-col">
-                <button class="btn btn-primary" :disabled="busy">Tambah</button>
-              </div>
+          <div class="section-header-row">
+            <div>
+              <h2><i class="fa-solid fa-users"></i> Penerima Laporan</h2>
+              <p class="muted" style="margin-top: 4px; margin-bottom: 0;">Urus kontak penyelenggara kolej untuk menghantar notifikasi aduan kerosakan.</p>
             </div>
-          </form>
+            <button type="button" class="btn btn-primary btn-open-modal" @click="showAddRecipientModal = true">
+              <i class="fa-solid fa-user-plus"></i> Tambah Penerima
+            </button>
+          </div>
 
           <div class="recipients-list-wrapper" v-if="recipients.length > 0">
             <table class="recipients-table">
@@ -243,7 +238,7 @@
                   <td class="cell-email">{{ r.email }}</td>
                   <td class="cell-phone">{{ r.phone }}</td>
                   <td class="cell-action">
-                    <button type="button" class="btn-delete-rec" @click="deleteRecipient(r.id)">Padam 🗑️</button>
+                    <button type="button" class="btn-delete-rec" @click="deleteRecipient(r.id)">Padam <i class="fa-solid fa-trash-can"></i></button>
                   </td>
                 </tr>
               </tbody>
@@ -252,12 +247,40 @@
           <p class="muted empty-recipients" v-else>Tiada penerima aduan dikonfigurasikan.</p>
         </section>
       </div>
+
+      <!-- Modal Add Recipient -->
+      <div class="modal-overlay" v-if="showAddRecipientModal" @click.self="showAddRecipientModal = false">
+        <div class="card modal-card">
+          <div class="modal-header">
+            <h2><i class="fa-solid fa-user-plus"></i> Tambah Penerima Laporan</h2>
+            <button type="button" class="btn-close-modal" @click="showAddRecipientModal = false"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <p class="muted" style="margin-bottom: 20px;">Sila masukkan nama kontak, e-mel, dan nombor telefon penerima.</p>
+          
+          <form @submit.prevent="addRecipient" class="recipient-form-modal">
+            <label>Nama Kontak
+              <input type="text" v-model="recipientForm.name" required placeholder="cth: En. Ahmad (Elektrikal)" />
+            </label>
+            <label>Alamat E-mel
+              <input type="email" v-model="recipientForm.email" required placeholder="cth: ahmad@kolej.edu.my" />
+            </label>
+            <label>No. Telefon (WhatsApp)
+              <input type="text" v-model="recipientForm.phone" required placeholder="cth: +60123456789" />
+            </label>
+            
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" @click="showAddRecipientModal = false">Batal</button>
+              <button class="btn btn-primary" :disabled="busy">Tambah</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </main>
 
     <!-- Login Dialog Overlay (if not logged in) -->
     <div class="login-overlay" v-else>
       <div class="card login-card">
-        <h2>🛠️ Log Masuk Pentadbir</h2>
+        <h2><i class="fa-solid fa-lock"></i> Log Masuk Pentadbir</h2>
         <p class="muted">Sila masukkan nama pengguna & kata laluan.</p>
         
         <form @submit.prevent="login">
@@ -285,7 +308,7 @@
                 placeholder="••••••••" 
               />
               <button type="button" class="btn-toggle-pw" @click="showPassword = !showPassword">
-                {{ showPassword ? '👁️' : '🙈' }}
+                <i class="fa-solid" :class="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
               </button>
             </div>
           </label>
@@ -347,6 +370,7 @@
         const recipients = ref([]);
         const recipientForm = reactive({ name: "", email: "", phone: "" });
         const activeShareReportId = ref(null);
+        const showAddRecipientModal = ref(false);
 
         async function load() {
           const q = filter.value ? `?status=${filter.value}` : "";
@@ -522,6 +546,7 @@
             recipientForm.name = "";
             recipientForm.email = "";
             recipientForm.phone = "";
+            showAddRecipientModal.value = false;
             loadRecipients();
           } catch (err) {
             alert(err.message);
@@ -888,6 +913,7 @@
           recipients,
           recipientForm,
           activeShareReportId,
+          showAddRecipientModal,
           addRecipient,
           deleteRecipient,
           toggleShareMenu,

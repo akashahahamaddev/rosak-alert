@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RosakAlert — Lapor Kerosakan</title>
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 <body>
   <div id="app">
     <header class="topbar">
       <div class="logo-wrapper">
         <img v-if="settings.appLogo" :src="settings.appLogo" class="app-logo" alt="Logo" />
-        <span v-else class="app-icon">🛠️</span>
+        <span v-else class="app-icon"><i class="fa-solid fa-wrench"></i></span>
         <span class="app-title">{{ settings.appName }}</span>
       </div>
       
@@ -21,7 +22,7 @@
           <button :class="['btn-lang', lang === 'ms' && 'active']" @click="setLang('ms')">MS</button>
           <button :class="['btn-lang', lang === 'en' && 'active']" @click="setLang('en')">EN</button>
         </div>
-        <a class="link-btn" href="/admin.html">{{ t('adminPanel') }} →</a>
+        <a class="link-btn" href="/admin.html"><i class="fa-solid fa-user-lock"></i> {{ t('adminPanel') }}</a>
       </div>
     </header>
 
@@ -31,7 +32,11 @@
         <h2>{{ t('successTitle') }}</h2>
         <p>{{ t('successRef') }}</p>
         <p class="ref">{{ result.ref }}</p>
-        <p class="muted">{{ t('successLoc') }} {{ result.building }}<span v-if="result.floor">, {{ result.floor }}</span><span v-if="result.room">, {{ result.room }}</span></p>
+        <p class="muted">
+          {{ t('successLoc') }} Blok {{ result.building }}
+          <span v-if="result.floor"> · Aras {{ result.floor }}</span>
+          <span v-if="result.room"> · Bilik/Kawasan {{ result.room }}</span>
+        </p>
         <button class="btn" @click="reset">{{ t('btnReportAgain') }}</button>
       </div>
 
@@ -50,7 +55,7 @@
             @click="$refs.fileInput.click()"
           >
             <div class="dropzone-content">
-              <span class="icon">📸</span>
+              <span class="icon"><i class="fa-solid fa-camera fa-2x"></i></span>
               <p class="main-text">{{ t('dropzoneMain') }}</p>
               <p class="sub-text">{{ t('dropzoneSub') }}</p>
             </div>
