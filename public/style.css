@@ -1114,16 +1114,16 @@ input:focus, select:focus, textarea:focus {
     grid-template-columns: 1.15fr 0.85fr;
     gap: 28px;
     max-width: 1100px;
-    align-items: stretch;
+    align-items: start;
   }
   .step1-container .carousel-container {
-    height: 100%;
+    height: 350px;
     aspect-ratio: auto;
   }
   .step1-container .dropzone-card {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 350px;
     justify-content: space-between;
   }
   .step1-container .dropzone-card .dropzone {
