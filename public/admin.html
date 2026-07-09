@@ -9,74 +9,208 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <h1>🛠️ RosakAlert · Pentadbir</h1>
-      <a class="link" href="/">← Borang Laporan</a>
+      <div class="logo-wrapper">
+        <img v-if="settings.appLogo" :src="settings.appLogo" class="app-logo" alt="Logo" />
+        <span v-else class="app-icon">🛠️</span>
+        <h1>{{ settings.appName }} · Pentadbir</h1>
+      </div>
+      <div class="topbar-actions" v-if="isAuthenticated">
+        <button class="btn-logout" @click="logout">Keluar 🚪</button>
+        <a class="link" href="/">← Borang Laporan</a>
+      </div>
+      <a class="link" href="/" v-else>← Borang Laporan</a>
     </header>
 
-    <main class="wrap wide">
-      <!-- Summary cards -->
-      <section class="stats">
-        <div class="stat"><span class="big">{{ stats.total }}</span> Jumlah</div>
-        <div class="stat baru"><span class="big">{{ count('baru') }}</span> Baru</div>
-        <div class="stat proses"><span class="big">{{ count('dalam_proses') }}</span> Dalam Proses</div>
-        <div class="stat selesai"><span class="big">{{ count('selesai') }}</span> Selesai</div>
-      </section>
+    <!-- Admin dashboard container (only visible if logged in) -->
+    <main class="wrap wide" v-if="isAuthenticated">
+      <!-- Tabs Selector -->
+      <div class="tabs">
+        <button :class="['tab-btn', activeTab === 'reports' && 'active']" @click="activeTab = 'reports'">📋 Laporan</button>
+        <button :class="['tab-btn', activeTab === 'settings' && 'active']" @click="activeTab = 'settings'">⚙️ Tetapan Sistem</button>
+      </div>
 
-      <!-- By building -->
-      <section class="card" v-if="stats.byBuilding && stats.byBuilding.length">
-        <h2>Kerosakan mengikut lokasi</h2>
-        <table class="mini">
-          <thead><tr><th>Bangunan/Blok</th><th>Jumlah</th><th>Baru</th><th>Proses</th><th>Selesai</th></tr></thead>
-          <tbody>
-            <tr v-for="b in stats.byBuilding" :key="b.building">
-              <td>{{ b.building }}</td><td>{{ b.total }}</td>
-              <td>{{ b.baru }}</td><td>{{ b.dalam_proses }}</td><td>{{ b.selesai }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+      <!-- Tab 1: Reports Management -->
+      <div v-if="activeTab === 'reports'">
+        <!-- Summary cards -->
+        <section class="stats">
+          <div class="stat"><span class="big">{{ stats.total }}</span> Jumlah</div>
+          <div class="stat baru"><span class="big">{{ count('baru') }}</span> Baru</div>
+          <div class="stat proses"><span class="big">{{ count('dalam_proses') }}</span> Dalam Proses</div>
+          <div class="stat selesai"><span class="big">{{ count('selesai') }}</span> Selesai</div>
+        </section>
 
-      <!-- Filter -->
-      <section class="filters">
-        <button :class="['chip', filter===''&&'on']" @click="setFilter('')">Semua</button>
-        <button :class="['chip', filter==='baru'&&'on']" @click="setFilter('baru')">Baru</button>
-        <button :class="['chip', filter==='dalam_proses'&&'on']" @click="setFilter('dalam_proses')">Dalam Proses</button>
-        <button :class="['chip', filter==='selesai'&&'on']" @click="setFilter('selesai')">Selesai</button>
-      </section>
+        <!-- By building -->
+        <section class="card" v-if="stats.byBuilding && stats.byBuilding.length">
+          <h2>Kerosakan mengikut lokasi</h2>
+          <table class="mini">
+            <thead><tr><th>Bangunan/Blok</th><th>Jumlah</th><th>Baru</th><th>Proses</th><th>Selesai</th></tr></thead>
+            <tbody>
+              <tr v-for="b in stats.byBuilding" :key="b.building">
+                <td>{{ b.building }}</td><td>{{ b.total }}</td>
+                <td>{{ b.baru }}</td><td>{{ b.dalam_proses }}</td><td>{{ b.selesai }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
 
-      <!-- Reports -->
-      <section class="grid">
-        <article class="card report" v-for="r in reports" :key="r.id">
-          <a v-if="r.photo" :href="r.photo" target="_blank">
-            <img :src="r.photo" class="thumb" alt="gambar" />
-          </a>
-          <div v-else class="thumb noimg">Tiada gambar</div>
-          <div class="report-body">
-            <div class="report-head">
-              <span class="ref-sm">{{ r.ref }}</span>
-              <span :class="['badge', r.status]">{{ label(r.status) }}</span>
+        <!-- Filter -->
+        <section class="filters">
+          <button :class="['chip', filter===''&&'on']" @click="setFilter('')">Semua</button>
+          <button :class="['chip', filter==='baru'&&'on']" @click="setFilter('baru')">Baru</button>
+          <button :class="['chip', filter==='dalam_proses'&&'on']" @click="setFilter('dalam_proses')">Dalam Proses</button>
+          <button :class="['chip', filter==='selesai'&&'on']" @click="setFilter('selesai')">Selesai</button>
+        </section>
+
+        <!-- Reports -->
+        <section class="grid">
+          <article class="card report" v-for="r in reports" :key="r.id">
+            <a v-if="r.photo" :href="r.photo" target="_blank">
+              <img :src="r.photo" class="thumb" alt="gambar" />
+            </a>
+            <div v-else class="thumb noimg">Tiada gambar</div>
+            <div class="report-body">
+              <div class="report-head">
+                <span class="ref-sm">{{ r.ref }}</span>
+                <span :class="['badge', r.status]">{{ label(r.status) }}</span>
+              </div>
+              <p class="loc">📍 {{ r.building }}<span v-if="r.floor">, {{ r.floor }}</span><span v-if="r.room">, {{ r.room }}</span></p>
+              <p class="cat" v-if="r.category">{{ r.category }}</p>
+              <p class="desc" v-if="r.description">{{ r.description }}</p>
+              <p class="meta">{{ r.reporter || 'Tanpa nama' }} · {{ r.created_at }}</p>
+              <div class="actions">
+                <select :value="r.status" @change="update(r, $event.target.value)">
+                  <option value="baru">Baru</option>
+                  <option value="dalam_proses">Dalam Proses</option>
+                  <option value="selesai">Selesai</option>
+                </select>
+              </div>
             </div>
-            <p class="loc">📍 {{ r.building }}<span v-if="r.floor">, {{ r.floor }}</span><span v-if="r.room">, {{ r.room }}</span></p>
-            <p class="cat" v-if="r.category">{{ r.category }}</p>
-            <p class="desc" v-if="r.description">{{ r.description }}</p>
-            <p class="meta">{{ r.reporter || 'Tanpa nama' }} · {{ r.created_at }}</p>
-            <div class="actions">
-              <select :value="r.status" @change="update(r, $event.target.value)">
-                <option value="baru">Baru</option>
-                <option value="dalam_proses">Dalam Proses</option>
-                <option value="selesai">Selesai</option>
-              </select>
+          </article>
+          <p v-if="!reports.length" class="muted empty">Tiada laporan.</p>
+        </section>
+      </div>
+
+      <!-- Tab 2: System Settings -->
+      <section class="card settings-section" v-else-if="activeTab === 'settings'">
+        <h2>⚙️ Tetapan Sistem & Jenama</h2>
+        <p class="muted">Ubah nama, logo, latar belakang, dan bahasa aplikasi RosakAlert.</p>
+
+        <form @submit.prevent="saveSettings">
+          <label for="appName">Nama Aplikasi
+            <input type="text" id="appName" v-model="settingsForm.appName" required placeholder="cth: RosakAlert" />
+          </label>
+
+          <label>Logo Aplikasi (Pilihan)
+            <div class="logo-setting-container">
+              <div class="logo-preview-box" v-if="settings.appLogo || tempLogoPreview">
+                <img :src="tempLogoPreview || settings.appLogo" class="logo-preview-img" alt="Pratonton Logo" />
+                <button type="button" class="btn-clear-asset" @click="clearLogoAsset">Buang Logo ❌</button>
+              </div>
+              <input type="file" ref="logoInput" accept="image/*" @change="onLogoChange" />
             </div>
+          </label>
+
+          <label>Latar Belakang Utama (Root Screen)
+            <div class="bg-type-selector">
+              <label class="radio-inline">
+                <input type="radio" value="default" v-model="settingsForm.backgroundType" /> Default Grid
+              </label>
+              <label class="radio-inline">
+                <input type="radio" value="css" v-model="settingsForm.backgroundType" /> Custom CSS Gradient
+              </label>
+              <label class="radio-inline">
+                <input type="radio" value="image" v-model="settingsForm.backgroundType" /> Gambar Latar Belakang
+              </label>
+            </div>
+          </label>
+
+          <!-- Conditionally show inputs based on backgroundType -->
+          <div v-if="settingsForm.backgroundType === 'css'" class="settings-subgroup">
+            <label for="backgroundCss">CSS Gradient / Latar Belakang
+              <textarea id="backgroundCss" v-model="settingsForm.backgroundCss" rows="2" placeholder="cth: linear-gradient(135deg, #0f1419 0%, #1a2029 100%)"></textarea>
+            </label>
           </div>
-        </article>
-        <p v-if="!reports.length" class="muted empty">Tiada laporan.</p>
+
+          <div v-if="settingsForm.backgroundType === 'image'" class="settings-subgroup">
+            <label>Muat Naik Gambar Latar Belakang
+              <div class="bg-setting-container">
+                <div class="bg-preview-box" v-if="settings.backgroundImage || tempBgPreview">
+                  <img :src="tempBgPreview || settings.backgroundImage" class="bg-preview-img" alt="Pratonton Gambar Latar" />
+                  <button type="button" class="btn-clear-asset" @click="clearBgImageAsset">Buang Gambar ❌</button>
+                </div>
+                <input type="file" ref="bgInput" accept="image/*" @change="onBgChange" />
+              </div>
+            </label>
+          </div>
+
+          <label>Bahasa Aktif
+            <div class="languages-selector">
+              <label class="checkbox-inline">
+                <input type="checkbox" value="ms" v-model="settingsForm.languages" /> Bahasa Melayu (ms)
+              </label>
+              <label class="checkbox-inline">
+                <input type="checkbox" value="en" v-model="settingsForm.languages" /> English (en)
+              </label>
+            </div>
+            <p class="error" v-if="settingsForm.languages.length === 0">Sila pilih sekurang-kurangnya satu bahasa.</p>
+          </label>
+
+          <p class="error" v-if="settingsError">{{ settingsError }}</p>
+          <p class="success-text" v-if="settingsSuccess">{{ settingsSuccess }}</p>
+
+          <button class="btn" :disabled="busy || settingsForm.languages.length === 0">
+            {{ busy ? "Menyimpan..." : "Simpan Tetapan" }}
+          </button>
+        </form>
       </section>
     </main>
+
+    <!-- Login Dialog Overlay (if not logged in) -->
+    <div class="login-overlay" v-else>
+      <div class="card login-card">
+        <h2>🛠️ Log Masuk Pentadbir</h2>
+        <p class="muted">Sila masukkan nama pengguna & kata laluan.</p>
+        
+        <form @submit.prevent="login">
+          <label for="username">Nama Pengguna
+            <input 
+              type="text" 
+              id="username" 
+              name="username" 
+              v-model="loginForm.username" 
+              autocomplete="username" 
+              required 
+              placeholder="cth: admin" 
+            />
+          </label>
+          
+          <label for="current-password">Kata Laluan
+            <div class="password-wrapper">
+              <input 
+                :type="showPassword ? 'text' : 'password'" 
+                id="current-password" 
+                name="password" 
+                v-model="loginForm.password" 
+                autocomplete="current-password" 
+                required 
+                placeholder="••••••••" 
+              />
+              <button type="button" class="btn-toggle-pw" @click="showPassword = !showPassword">
+                {{ showPassword ? '👁️' : '🙈' }}
+              </button>
+            </div>
+          </label>
+          
+          <p class="error" v-if="loginError">{{ loginError }}</p>
+          <button class="btn" :disabled="busy">{{ busy ? "Log Masuk..." : "Log Masuk" }}</button>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script>
-    const { createApp, ref, onMounted } = Vue;
+    const { createApp, ref, reactive, onMounted } = Vue;
     createApp({
       setup() {
         const reports = ref([]);
@@ -85,6 +219,40 @@
         const LABELS = { baru: "Baru", dalam_proses: "Dalam Proses", selesai: "Selesai" };
         const label = (s) => LABELS[s] || s;
         const count = (s) => (stats.value.byStatus.find((x) => x.status === s)?.n) || 0;
+
+        const isAuthenticated = ref(false);
+        const loginForm = reactive({ username: "", password: "" });
+        const loginError = ref("");
+        const showPassword = ref(false);
+        const busy = ref(false);
+
+        // System Settings State
+        const activeTab = ref("reports");
+        const settings = ref({
+          appName: "RosakAlert",
+          appLogo: "",
+          backgroundType: "default",
+          backgroundCss: "",
+          backgroundImage: "",
+          languages: ["ms"]
+        });
+        const settingsForm = reactive({
+          appName: "",
+          backgroundType: "default",
+          backgroundCss: "",
+          languages: ["ms"]
+        });
+        const settingsError = ref("");
+        const settingsSuccess = ref("");
+        const logoFile = ref(null);
+        const bgFile = ref(null);
+        const tempLogoPreview = ref("");
+        const tempBgPreview = ref("");
+        const clearLogo = ref(false);
+        const clearBgImage = ref(false);
+
+        const logoInput = ref(null);
+        const bgInput = ref(null);
 
         async function load() {
           const q = filter.value ? `?status=${filter.value}` : "";
@@ -104,8 +272,209 @@
           });
           load();
         }
-        onMounted(load);
-        return { reports, stats, filter, label, count, setFilter, update };
+
+        async function fetchSettings() {
+          try {
+            const res = await fetch("/api/settings");
+            if (res.ok) {
+              const data = await res.json();
+              settings.value = data;
+              
+              // Populate form fields
+              settingsForm.appName = data.appName;
+              settingsForm.backgroundType = data.backgroundType;
+              settingsForm.backgroundCss = data.backgroundCss;
+              settingsForm.languages = data.languages || ["ms"];
+              
+              applyBackground(data);
+              document.title = `${data.appName} — Panel Pentadbir`;
+            }
+          } catch (e) {
+            console.error("Gagal mendapatkan tetapan jenama:", e);
+          }
+        }
+
+        function applyBackground(s) {
+          if (s.backgroundType === "css") {
+            document.body.style.background = s.backgroundCss;
+            document.body.style.backgroundImage = "none";
+          } else if (s.backgroundType === "image" && s.backgroundImage) {
+            document.body.style.backgroundImage = `url('${s.backgroundImage}')`;
+            document.body.style.backgroundSize = "cover";
+            document.body.style.backgroundPosition = "center";
+            document.body.style.backgroundAttachment = "fixed";
+          } else {
+            // default
+            document.body.style.background = "var(--bg)";
+            document.body.style.backgroundImage = "none";
+          }
+        }
+
+        function onLogoChange(e) {
+          const file = e.target.files[0];
+          if (file) {
+            logoFile.value = file;
+            tempLogoPreview.value = URL.createObjectURL(file);
+            clearLogo.value = false;
+          }
+        }
+
+        function onBgChange(e) {
+          const file = e.target.files[0];
+          if (file) {
+            bgFile.value = file;
+            tempBgPreview.value = URL.createObjectURL(file);
+            clearBgImage.value = false;
+          }
+        }
+
+        function clearLogoAsset() {
+          settings.value.appLogo = "";
+          tempLogoPreview.value = "";
+          logoFile.value = null;
+          clearLogo.value = true;
+          if (logoInput.value) logoInput.value.value = "";
+        }
+
+        function clearBgImageAsset() {
+          settings.value.backgroundImage = "";
+          tempBgPreview.value = "";
+          bgFile.value = null;
+          clearBgImage.value = true;
+          if (bgInput.value) bgInput.value.value = "";
+        }
+
+        async function saveSettings() {
+          settingsError.value = "";
+          settingsSuccess.value = "";
+          busy.value = true;
+
+          try {
+            const fd = new FormData();
+            fd.append("appName", settingsForm.appName);
+            fd.append("backgroundType", settingsForm.backgroundType);
+            fd.append("backgroundCss", settingsForm.backgroundCss);
+            fd.append("languages", JSON.stringify(settingsForm.languages));
+            
+            if (logoFile.value) fd.append("logo", logoFile.value);
+            if (bgFile.value) fd.append("backgroundImage", bgFile.value);
+            
+            fd.append("clearLogo", clearLogo.value);
+            fd.append("clearBgImage", clearBgImage.value);
+
+            const res = await fetch("/api/settings", {
+              method: "POST",
+              body: fd
+            });
+            
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gagal menyimpan tetapan");
+            
+            settings.value = data;
+            
+            // reset temp variables
+            logoFile.value = null;
+            bgFile.value = null;
+            tempLogoPreview.value = "";
+            tempBgPreview.value = "";
+            clearLogo.value = false;
+            clearBgImage.value = false;
+            
+            if (logoInput.value) logoInput.value.value = "";
+            if (bgInput.value) bgInput.value.value = "";
+
+            applyBackground(data);
+            document.title = `${data.appName} — Panel Pentadbir`;
+            settingsSuccess.value = "Tetapan berjaya disimpan! 🎉";
+          } catch (err) {
+            settingsError.value = err.message;
+          } finally {
+            busy.value = false;
+          }
+        }
+
+        async function checkAuth() {
+          try {
+            const res = await fetch("/api/auth/status");
+            const data = await res.json();
+            if (data.authenticated) {
+              isAuthenticated.value = true;
+              load();
+            } else {
+              isAuthenticated.value = false;
+            }
+          } catch (e) {
+            isAuthenticated.value = false;
+          }
+        }
+
+        async function login() {
+          loginError.value = "";
+          busy.value = true;
+          try {
+            const res = await fetch("/api/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(loginForm),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gagal log masuk");
+            isAuthenticated.value = true;
+            loginForm.password = "";
+            load();
+          } catch (err) {
+            loginError.value = err.message;
+          } finally {
+            busy.value = false;
+          }
+        }
+
+        async function logout() {
+          try {
+            await fetch("/api/auth/logout", { method: "POST" });
+          } catch (e) {
+            // ignore
+          }
+          isAuthenticated.value = false;
+          reports.value = [];
+        }
+
+        onMounted(async () => {
+          await checkAuth();
+          await fetchSettings();
+        });
+
+        return { 
+          reports, 
+          stats, 
+          filter, 
+          label, 
+          count, 
+          setFilter, 
+          update,
+          isAuthenticated,
+          loginForm,
+          loginError,
+          showPassword,
+          busy,
+          login,
+          logout,
+          // Settings properties
+          activeTab,
+          settings,
+          settingsForm,
+          settingsError,
+          settingsSuccess,
+          logoInput,
+          bgInput,
+          tempLogoPreview,
+          tempBgPreview,
+          onLogoChange,
+          onBgChange,
+          clearLogoAsset,
+          clearBgImageAsset,
+          saveSettings
+        };
       },
     }).mount("#app");
   </script>

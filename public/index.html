@@ -9,92 +9,378 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <h1>🛠️ RosakAlert</h1>
-      <a class="link" href="/admin.html">Panel Pentadbir →</a>
+      <div class="logo-wrapper">
+        <img v-if="settings.appLogo" :src="settings.appLogo" class="app-logo" alt="Logo" />
+        <span v-else class="app-icon">🛠️</span>
+        <h1>{{ settings.appName }}</h1>
+      </div>
+      
+      <div class="topbar-right">
+        <!-- Language Switcher (only shown if both MS and EN are enabled) -->
+        <div class="lang-switcher" v-if="settings.languages && settings.languages.includes('ms') && settings.languages.includes('en')">
+          <button :class="['btn-lang', lang === 'ms' && 'active']" @click="setLang('ms')">MS</button>
+          <button :class="['btn-lang', lang === 'en' && 'active']" @click="setLang('en')">EN</button>
+        </div>
+        <a class="link" href="/admin.html">{{ t('adminPanel') }} →</a>
+      </div>
     </header>
 
-    <main class="wrap">
-      <div class="card" v-if="!submitted">
-        <h2>Lapor Kerosakan</h2>
-        <p class="muted">Snap gambar, isi lokasi, hantar. Semudah itu.</p>
-
-        <form @submit.prevent="submit">
-          <label>Gambar kerosakan
-            <input type="file" accept="image/*" capture="environment" @change="onFile" />
-          </label>
-          <img v-if="preview" :src="preview" class="preview" alt="pratonton" />
-
-          <label>Nama pelajar (pilihan)
-            <input v-model="form.reporter" placeholder="cth: Ali bin Abu" />
-          </label>
-
-          <label>Bangunan / Blok <span class="req">*</span>
-            <input v-model="form.building" required placeholder="cth: Blok A, Dewan Utama" />
-          </label>
-
-          <div class="row">
-            <label>Tingkat / Aras
-              <input v-model="form.floor" placeholder="cth: Aras 2" />
-            </label>
-            <label>Bilik / Kawasan
-              <input v-model="form.room" placeholder="cth: Bilik 204, Tandas" />
-            </label>
-          </div>
-
-          <label>Jenis kerosakan
-            <select v-model="form.category">
-              <option value="">— pilih —</option>
-              <option>Elektrik</option>
-              <option>Paip / Air</option>
-              <option>Perabot</option>
-              <option>Pintu / Tingkap</option>
-              <option>Penyaman Udara</option>
-              <option>Lain-lain</option>
-            </select>
-          </label>
-
-          <label>Keterangan
-            <textarea v-model="form.description" rows="3" placeholder="Terangkan kerosakan..."></textarea>
-          </label>
-
-          <p class="error" v-if="error">{{ error }}</p>
-          <button class="btn" :disabled="busy">{{ busy ? "Menghantar..." : "Hantar Laporan" }}</button>
-        </form>
+    <main :class="['wrap', preview && 'has-image']">
+      <!-- If report submitted successfully -->
+      <div class="card success" v-if="submitted">
+        <h2>{{ t('successTitle') }}</h2>
+        <p>{{ t('successRef') }}</p>
+        <p class="ref">{{ result.ref }}</p>
+        <p class="muted">{{ t('successLoc') }} {{ result.building }}<span v-if="result.floor">, {{ result.floor }}</span><span v-if="result.room">, {{ result.room }}</span></p>
+        <button class="btn" @click="reset">{{ t('btnReportAgain') }}</button>
       </div>
 
-      <div class="card success" v-else>
-        <h2>✅ Laporan diterima!</h2>
-        <p>Nombor rujukan anda:</p>
-        <p class="ref">{{ result.ref }}</p>
-        <p class="muted">Lokasi: {{ result.building }}<span v-if="result.floor">, {{ result.floor }}</span><span v-if="result.room">, {{ result.room }}</span></p>
-        <button class="btn" @click="reset">Lapor Lagi</button>
+      <!-- Main reporting flow -->
+      <div v-else>
+        <!-- Step 1: Image Dropzone/Selector (if no image is selected yet) -->
+        <div class="card dropzone-card" v-if="!preview">
+          <h2>{{ t('title') }}</h2>
+          <p class="muted">{{ t('subtitle') }}</p>
+          
+          <div 
+            :class="['dropzone', dragOver && 'dragover']"
+            @dragover.prevent="dragOver = true"
+            @dragleave.prevent="dragOver = false"
+            @drop.prevent="onDrop"
+            @click="$refs.fileInput.click()"
+          >
+            <div class="dropzone-content">
+              <span class="icon">📸</span>
+              <p class="main-text">{{ t('dropzoneMain') }}</p>
+              <p class="sub-text">{{ t('dropzoneSub') }}</p>
+            </div>
+            <input 
+              type="file" 
+              ref="fileInput" 
+              accept="image/*" 
+              capture="environment" 
+              @change="onFile" 
+              style="display: none;" 
+            />
+          </div>
+          <p class="error" v-if="error">{{ error }}</p>
+        </div>
+
+        <!-- Step 2: Split Layout (Preview + Details form) -->
+        <div class="split-container" v-else>
+          <div class="card preview-card">
+            <h2>{{ t('imageTitle') }}</h2>
+            <div class="preview-container">
+              <img :src="preview" class="preview-img" alt="Pratonton kerosakan" />
+              <button type="button" class="btn btn-secondary" @click="resetImage">{{ t('changeImage') }}</button>
+            </div>
+          </div>
+
+          <div class="card form-card">
+            <h2>{{ t('detailsTitle') }}</h2>
+            <p class="muted">{{ t('step2Subtitle') }}</p>
+            
+            <form @submit.prevent="submit">
+              <label>{{ t('reporterLabel') }}
+                <input v-model="form.reporter" :placeholder="t('reporterPlaceholder')" />
+              </label>
+
+              <label>{{ t('buildingLabel') }} <span class="req">*</span>
+                <input v-model="form.building" required :placeholder="t('buildingPlaceholder')" />
+              </label>
+
+              <div class="row">
+                <label>{{ t('floorLabel') }}
+                  <input v-model="form.floor" :placeholder="t('floorPlaceholder')" />
+                </label>
+                <label>{{ t('roomLabel') }}
+                  <input v-model="form.room" :placeholder="t('roomPlaceholder')" />
+                </label>
+              </div>
+
+              <label>{{ t('categoryLabel') }}
+                <select v-model="form.category">
+                  <option value="">{{ t('categorySelect') }}</option>
+                  <option value="Elektrik">{{ t('categoryElectric') }}</option>
+                  <option value="Paip / Air">{{ t('categoryPlumbing') }}</option>
+                  <option value="Perabot">{{ t('categoryFurniture') }}</option>
+                  <option value="Pintu / Tingkap">{{ t('categoryDoorWindow') }}</option>
+                  <option value="Penyaman Udara">{{ t('categoryAC') }}</option>
+                  <option value="Lain-lain">{{ t('categoryOthers') }}</option>
+                </select>
+              </label>
+
+              <label>{{ t('descriptionLabel') }}
+                <textarea v-model="form.description" rows="3" :placeholder="t('descriptionPlaceholder')"></textarea>
+              </label>
+
+              <p class="error" v-if="error">{{ error }}</p>
+              <button class="btn" :disabled="busy">{{ busy ? t('btnSubmitting') : t('btnSubmit') }}</button>
+            </form>
+          </div>
+        </div>
       </div>
     </main>
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script>
-    const { createApp, reactive, ref } = Vue;
+    const TRANSLATIONS = {
+      ms: {
+        adminPanel: "Panel Pentadbir",
+        title: "Lapor Kerosakan",
+        subtitle: "Langkah 1: Snap atau pilih gambar kerosakan untuk mula.",
+        dropzoneMain: "Klik untuk snap / pilih gambar",
+        dropzoneSub: "atau seret & lepas fail imej, atau tampal (paste) di sini",
+        imageTitle: "Gambar Kerosakan",
+        changeImage: "📸 Tukar Gambar",
+        detailsTitle: "Butiran Kerosakan",
+        step2Subtitle: "Langkah 2: Sila lengkapkan maklumat di bawah.",
+        reporterLabel: "Nama pelajar (pilihan)",
+        reporterPlaceholder: "cth: Ali bin Abu",
+        buildingLabel: "Bangunan / Blok",
+        buildingPlaceholder: "cth: Blok A, Dewan Utama",
+        floorLabel: "Tingkat / Aras",
+        floorPlaceholder: "cth: Aras 2",
+        roomLabel: "Bilik / Kawasan",
+        roomPlaceholder: "cth: Bilik 204, Tandas",
+        categoryLabel: "Jenis kerosakan",
+        categorySelect: "— pilih —",
+        categoryElectric: "Elektrik",
+        categoryPlumbing: "Paip / Air",
+        categoryFurniture: "Perabot",
+        categoryDoorWindow: "Pintu / Tingkap",
+        categoryAC: "Penyaman Udara",
+        categoryOthers: "Lain-lain",
+        descriptionLabel: "Keterangan",
+        descriptionPlaceholder: "Terangkan kerosakan...",
+        btnSubmit: "Hantar Laporan",
+        btnSubmitting: "Menghantar...",
+        successTitle: "✅ Laporan diterima!",
+        successRef: "Nombor rujukan anda:",
+        successLoc: "Lokasi:",
+        btnReportAgain: "Lapor Lagi",
+        invalidFile: "Sila pilih fail imej sahaja.",
+        dropImageOnly: "Sila seret fail imej sahaja."
+      },
+      en: {
+        adminPanel: "Admin Panel",
+        title: "Report Damage",
+        subtitle: "Step 1: Snap or select a damage photo to start.",
+        dropzoneMain: "Click to snap / select photo",
+        dropzoneSub: "or drag & drop image file, or paste here",
+        imageTitle: "Damage Photo",
+        changeImage: "📸 Change Image",
+        detailsTitle: "Damage Details",
+        step2Subtitle: "Step 2: Please complete the information below.",
+        reporterLabel: "Student name (optional)",
+        reporterPlaceholder: "e.g., John Doe",
+        buildingLabel: "Building / Block",
+        buildingPlaceholder: "e.g., Block A, Main Hall",
+        floorLabel: "Floor / Level",
+        floorPlaceholder: "e.g., Level 2",
+        roomLabel: "Room / Area",
+        roomPlaceholder: "e.g., Room 204, Toilet",
+        categoryLabel: "Type of damage",
+        categorySelect: "— select —",
+        categoryElectric: "Electrical",
+        categoryPlumbing: "Plumbing / Water",
+        categoryFurniture: "Furniture",
+        categoryDoorWindow: "Door / Window",
+        categoryAC: "Air Conditioning",
+        categoryOthers: "Others",
+        descriptionLabel: "Description",
+        descriptionPlaceholder: "Describe the damage...",
+        btnSubmit: "Submit Report",
+        btnSubmitting: "Submitting...",
+        successTitle: "✅ Report received!",
+        successRef: "Your reference number:",
+        successLoc: "Location:",
+        btnReportAgain: "Report Again",
+        invalidFile: "Please select an image file only.",
+        dropImageOnly: "Please drag an image file only."
+      }
+    };
+
+    const { createApp, reactive, ref, onMounted, onUnmounted } = Vue;
     createApp({
       setup() {
         const blank = () => ({ reporter: "", building: "", floor: "", room: "", category: "", description: "" });
         const form = reactive(blank());
         const file = ref(null);
         const preview = ref("");
+        const dragOver = ref(false);
         const busy = ref(false);
         const error = ref("");
         const submitted = ref(false);
         const result = ref({});
+        const fileInput = ref(null);
+
+        // Branding and dynamic settings
+        const settings = ref({
+          appName: "RosakAlert",
+          appLogo: "",
+          backgroundType: "default",
+          backgroundCss: "linear-gradient(135deg, #0f1419 0%, #1a2029 100%)",
+          backgroundImage: "",
+          languages: ["ms", "en"]
+        });
+        const lang = ref("ms");
+
+        function setLang(l) {
+          lang.value = l;
+          localStorage.setItem("rosakalert_lang", l);
+          updateDocumentTitle();
+        }
+
+        const t = (k) => {
+          const dict = TRANSLATIONS[lang.value] || TRANSLATIONS.ms;
+          return dict[k] || k;
+        };
+
+        function updateDocumentTitle() {
+          const titleSuffix = lang.value === "en" ? "Report Damage" : "Lapor Kerosakan";
+          document.title = `${settings.value.appName} — ${titleSuffix}`;
+        }
+
+        async function fetchSettings() {
+          try {
+            const res = await fetch("/api/settings");
+            if (res.ok) {
+              const data = await res.json();
+              settings.value = data;
+              applyBackground(data);
+              updateDocumentTitle();
+              
+              // Validate dynamic selected language against active config
+              if (data.languages && data.languages.length > 0) {
+                if (!data.languages.includes(lang.value)) {
+                  setLang(data.languages[0]);
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Gagal mendapatkan tetapan jenama:", e);
+          }
+        }
+
+        function applyBackground(s) {
+          if (s.backgroundType === "css") {
+            document.body.style.background = s.backgroundCss;
+            document.body.style.backgroundImage = "none";
+          } else if (s.backgroundType === "image" && s.backgroundImage) {
+            document.body.style.backgroundImage = `url('${s.backgroundImage}')`;
+            document.body.style.backgroundSize = "cover";
+            document.body.style.backgroundPosition = "center";
+            document.body.style.backgroundAttachment = "fixed";
+          } else {
+            // default
+            document.body.style.background = "var(--bg)";
+            document.body.style.backgroundImage = "none";
+          }
+        }
+
+        function getDeviceName() {
+          const ua = navigator.userAgent;
+          let os = "Peranti";
+          let browser = "";
+
+          if (/android/i.test(ua)) os = "Android";
+          else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) os = "iOS";
+          else if (/macintosh|mac os x/i.test(ua)) os = "Mac";
+          else if (/windows/i.test(ua)) os = "Windows";
+          else if (/linux/i.test(ua)) os = "Linux";
+
+          if (/chrome|crios/i.test(ua)) browser = "Chrome";
+          else if (/firefox|fxios/i.test(ua)) browser = "Firefox";
+          else if (/safari/i.test(ua) && !/chrome|crios/i.test(ua)) browser = "Safari";
+          else if (/edge|edg/i.test(ua)) browser = "Edge";
+
+          return `Pelajar (${os}${browser ? " " + browser : ""})`;
+        }
+
+        function loadProfile() {
+          const stored = localStorage.getItem("rosakalert_profile");
+          if (stored) {
+            try {
+              const profile = JSON.parse(stored);
+              form.reporter = profile.reporter || "";
+              form.building = profile.building || "";
+              form.floor = profile.floor || "";
+              form.room = profile.room || "";
+            } catch (e) {
+              // ignore
+            }
+          }
+          if (!form.reporter) {
+            form.reporter = getDeviceName();
+          }
+        }
+
+        function saveProfile() {
+          localStorage.setItem("rosakalert_profile", JSON.stringify({
+            reporter: form.reporter,
+            building: form.building,
+            floor: form.floor,
+            room: form.room
+          }));
+        }
 
         function onFile(e) {
           const f = e.target.files[0];
-          file.value = f || null;
-          preview.value = f ? URL.createObjectURL(f) : "";
+          if (f) {
+            if (!/^image\//.test(f.type)) {
+              error.value = t("invalidFile");
+              return;
+            }
+            file.value = f;
+            preview.value = URL.createObjectURL(f);
+            error.value = "";
+          }
+        }
+
+        function onDrop(e) {
+          dragOver.value = false;
+          const f = e.dataTransfer.files[0];
+          if (f) {
+            if (!/^image\//.test(f.type)) {
+              error.value = t("dropImageOnly");
+              return;
+            }
+            file.value = f;
+            preview.value = URL.createObjectURL(f);
+            error.value = "";
+          }
+        }
+
+        function onPaste(e) {
+          if (submitted.value || busy.value || preview.value) return;
+
+          const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+          for (const item of items) {
+            if (item.type.indexOf("image") === 0) {
+              const f = item.getAsFile();
+              if (f) {
+                file.value = f;
+                preview.value = URL.createObjectURL(f);
+                error.value = "";
+                e.preventDefault();
+                break;
+              }
+            }
+          }
+        }
+
+        function resetImage() {
+          file.value = null;
+          preview.value = "";
+          error.value = "";
+          if (fileInput.value) fileInput.value.value = "";
         }
 
         async function submit() {
           error.value = "";
-          if (!form.building.trim()) { error.value = "Sila isi bangunan/lokasi."; return; }
+          if (!form.building.trim()) { error.value = lang.value === "en" ? "Please fill in building/location." : "Sila isi bangunan/lokasi."; return; }
           busy.value = true;
           try {
             const fd = new FormData();
@@ -105,6 +391,7 @@
             if (!res.ok) throw new Error(data.error || "Gagal menghantar");
             result.value = data;
             submitted.value = true;
+            saveProfile();
           } catch (err) {
             error.value = err.message;
           } finally {
@@ -113,14 +400,65 @@
         }
 
         function reset() {
+          const reporter = form.reporter;
+          const building = form.building;
+          const floor = form.floor;
+          const room = form.room;
+          
           Object.assign(form, blank());
+          
+          form.reporter = reporter;
+          form.building = building;
+          form.floor = floor;
+          form.room = room;
+
           file.value = null;
           preview.value = "";
           submitted.value = false;
           error.value = "";
+          if (fileInput.value) fileInput.value.value = "";
         }
 
-        return { form, preview, busy, error, submitted, result, onFile, submit, reset };
+        onMounted(() => {
+          // Initialize language
+          const storedLang = localStorage.getItem("rosakalert_lang");
+          if (storedLang && ["ms", "en"].includes(storedLang)) {
+            lang.value = storedLang;
+          } else {
+            const userLang = navigator.language || navigator.userLanguage;
+            if (userLang.startsWith("en")) {
+              lang.value = "en";
+            }
+          }
+
+          loadProfile();
+          fetchSettings();
+          window.addEventListener("paste", onPaste);
+        });
+
+        onUnmounted(() => {
+          window.removeEventListener("paste", onPaste);
+        });
+
+        return {
+          form,
+          preview,
+          dragOver,
+          busy,
+          error,
+          submitted,
+          result,
+          fileInput,
+          settings,
+          lang,
+          setLang,
+          t,
+          onFile,
+          onDrop,
+          resetImage,
+          submit,
+          reset
+        };
       },
     }).mount("#app");
   </script>

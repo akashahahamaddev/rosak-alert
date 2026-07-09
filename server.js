@@ -3,12 +3,46 @@ import multer from "multer";
 import Database from "better-sqlite3";
 import { fileURLToPath } from "url";
 import { dirname, join, extname } from "path";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import fs from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = join(__dirname, "uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// --- Cryptography & Session helper functions -------------------------------
+function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const derivedKey = scryptSync(password, salt, 64);
+  return `${salt}:${derivedKey.toString("hex")}`;
+}
+
+function verifyPassword(password, storedHash) {
+  const [salt, key] = storedHash.split(":");
+  const derivedKey = scryptSync(password, salt, 64);
+  const keyBuffer = Buffer.from(key, "hex");
+  return timingSafeEqual(derivedKey, keyBuffer);
+}
+
+const sessions = new Set();
+
+function getCookie(req, name) {
+  const cookies = req.headers.cookie || "";
+  const parts = cookies.split(";");
+  for (const part of parts) {
+    const [k, v] = part.trim().split("=");
+    if (k === name) return v;
+  }
+  return null;
+}
+
+function authMiddleware(req, res, next) {
+  const sessionId = getCookie(req, "session_id");
+  if (!sessionId || !sessions.has(sessionId)) {
+    return res.status(401).json({ error: "Sesi tidak sah atau telah tamat" });
+  }
+  next();
+}
 
 // --- Database setup -------------------------------------------------------
 const db = new Database(join(__dirname, "data.db"));
@@ -28,9 +62,49 @@ db.exec(`
     created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     updated_at   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
+
+  CREATE TABLE IF NOT EXISTS admins (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key           TEXT PRIMARY KEY,
+    value         TEXT NOT NULL
+  );
 `);
 
+// Seed default admin if table is empty
+const adminExists = db.prepare("SELECT COUNT(*) as count FROM admins").get();
+if (adminExists.count === 0) {
+  const defaultUser = process.env.ADMIN_USER || "admin";
+  const defaultPass = process.env.ADMIN_PASS || "admin123";
+  const defaultHash = hashPassword(defaultPass);
+  db.prepare("INSERT INTO admins (username, password_hash) VALUES (?, ?)").run(defaultUser, defaultHash);
+  console.log(`[SEED] Pengguna pentadbir lalai dicipta: ${defaultUser} / ${defaultPass}`);
+}
+
+// Seed default settings if empty
+const settingsCount = db.prepare("SELECT COUNT(*) as count FROM settings").get();
+if (settingsCount.count === 0) {
+  const defaultSettings = [
+    { key: "appName", value: "RosakAlert" },
+    { key: "appLogo", value: "" },
+    { key: "backgroundType", value: "default" }, // default, css, image
+    { key: "backgroundCss", value: "linear-gradient(135deg, #0f1419 0%, #1a2029 100%)" },
+    { key: "backgroundImage", value: "" },
+    { key: "languages", value: JSON.stringify(["ms", "en"]) } // allow both ms and en by default
+  ];
+  const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+  for (const s of defaultSettings) {
+    stmt.run(s.key, s.value);
+  }
+  console.log("[SEED] Tetapan lalai dicipta.");
+}
+
 const STATUSES = ["baru", "dalam_proses", "selesai"];
+
 
 // --- File uploads ---------------------------------------------------------
 const storage = multer.diskStorage({
@@ -85,8 +159,129 @@ app.post("/api/reports", upload.single("photo"), (req, res) => {
   res.status(201).json(row);
 });
 
-// List reports, optional ?status= & ?building= filter
-app.get("/api/reports", (req, res) => {
+// --- Auth APIs -------------------------------------------------------------
+app.post("/api/auth/login", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Sila isi nama pengguna dan kata laluan" });
+  }
+  const admin = db.prepare("SELECT * FROM admins WHERE username = ?").get(username);
+  if (!admin || !verifyPassword(password, admin.password_hash)) {
+    return res.status(401).json({ error: "Nama pengguna atau kata laluan salah" });
+  }
+
+  const sessionId = randomUUID();
+  sessions.add(sessionId);
+
+  res.setHeader(
+    "Set-Cookie",
+    `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Strict; MaxAge=86400${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+  );
+  res.json({ success: true, username: admin.username });
+});
+
+app.get("/api/auth/status", (req, res) => {
+  const sessionId = getCookie(req, "session_id");
+  if (sessionId && sessions.has(sessionId)) {
+    res.json({ authenticated: true });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  const sessionId = getCookie(req, "session_id");
+  if (sessionId) {
+    sessions.delete(sessionId);
+  }
+  res.setHeader(
+    "Set-Cookie",
+    "session_id=; Path=/; HttpOnly; SameSite=Strict; MaxAge=0"
+  );
+  res.json({ success: true });
+});
+
+// --- Settings APIs ---------------------------------------------------------
+app.get("/api/settings", (_req, res) => {
+  const rows = db.prepare("SELECT * FROM settings").all();
+  const settings = {};
+  for (const row of rows) {
+    if (row.key === "languages") {
+      try {
+        settings[row.key] = JSON.parse(row.value);
+      } catch (e) {
+        settings[row.key] = ["ms"];
+      }
+    } else {
+      settings[row.key] = row.value;
+    }
+  }
+  res.json(settings);
+});
+
+const uploadSettings = upload.fields([
+  { name: "logo", maxCount: 1 },
+  { name: "backgroundImage", maxCount: 1 }
+]);
+
+app.post("/api/settings", authMiddleware, uploadSettings, (req, res) => {
+  const { appName, backgroundType, backgroundCss, languages } = req.body;
+  const stmt = db.prepare("UPDATE settings SET value = ? WHERE key = ?");
+
+  if (appName !== undefined) stmt.run(appName.trim(), "appName");
+  if (backgroundType !== undefined) stmt.run(backgroundType, "backgroundType");
+  if (backgroundCss !== undefined) stmt.run(backgroundCss, "backgroundCss");
+  if (languages !== undefined) {
+    try {
+      const parsedLangs = JSON.parse(languages);
+      if (Array.isArray(parsedLangs) && parsedLangs.length > 0) {
+        stmt.run(JSON.stringify(parsedLangs), "languages");
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Handle uploaded files
+  if (req.files) {
+    if (req.files.logo && req.files.logo[0]) {
+      const logoUrl = `/uploads/${req.files.logo[0].filename}`;
+      stmt.run(logoUrl, "appLogo");
+    }
+    if (req.files.backgroundImage && req.files.backgroundImage[0]) {
+      const bgUrl = `/uploads/${req.files.backgroundImage[0].filename}`;
+      stmt.run(bgUrl, "backgroundImage");
+    }
+  }
+
+  // Clear logo or bg image if requested
+  const { clearLogo, clearBgImage } = req.body;
+  if (clearLogo === "true" || clearLogo === true) {
+    stmt.run("", "appLogo");
+  }
+  if (clearBgImage === "true" || clearBgImage === true) {
+    stmt.run("", "backgroundImage");
+  }
+
+  // Fetch updated settings
+  const rows = db.prepare("SELECT * FROM settings").all();
+  const settings = {};
+  for (const row of rows) {
+    if (row.key === "languages") {
+      try {
+        settings[row.key] = JSON.parse(row.value);
+      } catch (e) {
+        settings[row.key] = ["ms"];
+      }
+    } else {
+      settings[row.key] = row.value;
+    }
+  }
+  res.json(settings);
+});
+
+// List reports, optional ?status= & ?building= filter (Admin only)
+app.get("/api/reports", authMiddleware, (req, res) => {
   const { status, building } = req.query;
   const clauses = [];
   const params = {};
@@ -97,8 +292,8 @@ app.get("/api/reports", (req, res) => {
   res.json(rows);
 });
 
-// Summary stats grouped by building + status (the "automatic management by area")
-app.get("/api/stats", (_req, res) => {
+// Summary stats grouped by building + status (Admin only)
+app.get("/api/stats", authMiddleware, (_req, res) => {
   const byStatus = db.prepare("SELECT status, COUNT(*) n FROM reports GROUP BY status").all();
   const byBuilding = db
     .prepare(
@@ -113,8 +308,8 @@ app.get("/api/stats", (_req, res) => {
   res.json({ byStatus, byBuilding, total: db.prepare("SELECT COUNT(*) n FROM reports").get().n });
 });
 
-// Update status (admin)
-app.patch("/api/reports/:id", (req, res) => {
+// Update status (Admin only)
+app.patch("/api/reports/:id", authMiddleware, (req, res) => {
   const { status } = req.body;
   if (!STATUSES.includes(status)) {
     return res.status(400).json({ error: "Status tidak sah" });

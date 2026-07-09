@@ -139,3 +139,305 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   .stats { grid-template-columns: repeat(2, 1fr); }
   .row { flex-direction: column; gap: 0; }
 }
+
+/* --- Dropzone Styles --- */
+.dropzone {
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  background: rgba(26, 32, 41, 0.4);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.1s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  margin-top: 14px;
+}
+.dropzone:hover {
+  border-color: var(--accent);
+  background: rgba(46, 163, 107, 0.04);
+}
+.dropzone.dragover {
+  border-color: var(--accent-hi);
+  background: rgba(46, 163, 107, 0.1);
+  transform: scale(0.99);
+}
+.dropzone-content .icon {
+  font-size: 52px;
+  display: block;
+  margin-bottom: 16px;
+}
+.dropzone-content .main-text {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.dropzone-content .sub-text {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* --- Desktop Split Layout --- */
+@media (min-width: 768px) {
+  .wrap.has-image {
+    max-width: 1000px;
+  }
+  .split-container {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+}
+
+.preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+.preview-img {
+  width: 100%;
+  max-height: 380px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.btn-secondary {
+  background: var(--line);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.btn-secondary:hover {
+  background: #343e4c;
+}
+
+/* --- Login Overlay --- */
+.login-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px);
+  padding: 20px;
+}
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  margin: 0;
+  backdrop-filter: blur(16px);
+  background: rgba(26, 32, 41, 0.85);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper input {
+  padding-right: 44px;
+}
+.btn-toggle-pw {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-toggle-pw:hover {
+  color: var(--text);
+}
+
+/* --- Topbar & Logout --- */
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.btn-logout {
+  background: transparent;
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  color: #ff6b6b;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-logout:hover {
+  background: rgba(255, 107, 107, 0.1);
+  border-color: #ff6b6b;
+}
+
+/* --- Brand Customizations --- */
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.app-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  max-width: 120px;
+}
+.app-icon {
+  font-size: 22px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.lang-switcher {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.btn-lang {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-lang:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+.btn-lang.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* --- Admin Tabs --- */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.tab-btn.active {
+  background: rgba(46, 163, 107, 0.12);
+  color: var(--accent-hi);
+  border-color: rgba(46, 163, 107, 0.24);
+}
+
+/* --- Settings Config Panels --- */
+.logo-setting-container, .bg-setting-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+.logo-preview-box, .bg-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.logo-preview-img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #2a333f;
+  padding: 4px;
+}
+.bg-preview-img {
+  height: 60px;
+  width: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.btn-clear-asset {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.btn-clear-asset:hover {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+.bg-type-selector, .languages-selector {
+  display: flex;
+  gap: 20px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.radio-inline, .checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  margin: 0;
+}
+.radio-inline input, .checkbox-inline input {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.settings-subgroup {
+  margin-top: 14px;
+  padding-left: 16px;
+  border-left: 2px solid var(--accent);
+}
+
+.success-text {
+  color: var(--accent-hi);
+  font-size: 14px;
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+
