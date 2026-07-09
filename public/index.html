@@ -54,6 +54,23 @@
           <div class="hero-divider"></div>
         </div>
 
+        <!-- Banner Carousel Section -->
+        <div class="carousel-container" v-if="!preview && carouselImages.length > 0">
+          <div class="carousel-track" :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
+            <div class="carousel-slide" v-for="(img, idx) in carouselImages" :key="idx">
+              <img :src="img" class="carousel-img" alt="Banner" />
+            </div>
+          </div>
+          <div class="carousel-dots" v-if="carouselImages.length > 1">
+            <span 
+              v-for="(img, idx) in carouselImages" 
+              :key="idx" 
+              :class="['dot', currentSlide === idx && 'active']"
+              @click="currentSlide = idx"
+            ></span>
+          </div>
+        </div>
+
         <!-- Step 1: Image Dropzone/Selector (if no image is selected yet) -->
         <div class="card dropzone-card" v-if="!preview">
           <h2><i class="fa-solid fa-camera"></i> {{ t('title') }}</h2>
@@ -251,6 +268,9 @@
         const result = ref({});
         const fileInput = ref(null);
         const showAboutModal = ref(false);
+        const currentSlide = ref(0);
+        const carouselImages = ref(["/images/carousel1.png", "/images/carousel2.png"]);
+        let carouselInterval = null;
 
         // Branding and dynamic settings
         const settings = ref({
@@ -472,10 +492,18 @@
           loadProfile();
           fetchSettings();
           window.addEventListener("paste", onPaste);
+
+          // Autoplay carousel slides
+          carouselInterval = setInterval(() => {
+            if (carouselImages.value.length > 0) {
+              currentSlide.value = (currentSlide.value + 1) % carouselImages.value.length;
+            }
+          }, 4500);
         });
 
         onUnmounted(() => {
           window.removeEventListener("paste", onPaste);
+          if (carouselInterval) clearInterval(carouselInterval);
         });
 
         return {
@@ -496,7 +524,9 @@
           resetImage,
           submit,
           reset,
-          showAboutModal
+          showAboutModal,
+          currentSlide,
+          carouselImages
         };
       },
     }).mount("#app");
