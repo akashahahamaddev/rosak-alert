@@ -73,6 +73,13 @@ db.exec(`
     key           TEXT PRIMARY KEY,
     value         TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS recipients (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,
+    email         TEXT NOT NULL,
+    phone         TEXT NOT NULL
+  );
 `);
 
 // Seed default admin if table is empty
@@ -319,6 +326,39 @@ app.patch("/api/reports/:id", authMiddleware, (req, res) => {
     .run(status, req.params.id);
   if (!info.changes) return res.status(404).json({ error: "Laporan tidak dijumpai" });
   res.json(db.prepare("SELECT * FROM reports WHERE id=?").get(req.params.id));
+});
+
+// --- Recipients APIs (Admin only) ---
+app.get("/api/recipients", authMiddleware, (req, res) => {
+  try {
+    const list = db.prepare("SELECT * FROM recipients ORDER BY name ASC").all();
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/recipients", authMiddleware, (req, res) => {
+  const { name, email, phone } = req.body;
+  if (!name || !email || !phone) {
+    return res.status(400).json({ error: "Semua medan (Nama, E-mel, Telefon) wajib diisi" });
+  }
+  try {
+    const info = db.prepare("INSERT INTO recipients (name, email, phone) VALUES (?, ?, ?)").run(name, email, phone);
+    res.json({ id: info.lastInsertRowId, name, email, phone });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/recipients/:id", authMiddleware, (req, res) => {
+  try {
+    const info = db.prepare("DELETE FROM recipients WHERE id = ?").run(req.params.id);
+    if (!info.changes) return res.status(404).json({ error: "Penerima tidak dijumpai" });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Multer / general error handler

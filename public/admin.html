@@ -86,6 +86,28 @@
                   <option value="dalam_proses">Dalam Proses</option>
                   <option value="selesai">Selesai</option>
                 </select>
+                
+                <div class="notify-share-block">
+                  <button type="button" class="btn-share-toggle" @click="toggleShareMenu(r.id)">
+                    📢 Hantar Makluman <span class="chevron-arrow">▼</span>
+                  </button>
+                  
+                  <div class="share-dropdown" v-if="activeShareReportId === r.id">
+                    <div class="share-title">Pilih Penerima:</div>
+                    <div class="share-recipients" v-if="recipients.length > 0">
+                      <div class="share-recipient-row" v-for="rec in recipients" :key="rec.id">
+                        <span class="rec-name">{{ rec.name }}</span>
+                        <div class="share-btns">
+                          <a class="share-btn wa" :href="getWhatsAppLink(rec.phone, r)" target="_blank" title="WhatsApp">🟢 WA</a>
+                          <a class="share-btn mail" :href="getEmailLink(rec.email, r)" target="_blank" title="E-mel">✉️ E-mel</a>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="share-empty" v-else>
+                      Tiada penerima. <a href="#" @click.prevent="activeTab = 'settings'; activeShareReportId = null;">Tambah penerima</a>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </article>
@@ -94,78 +116,127 @@
       </div>
 
       <!-- Tab 2: System Settings -->
-      <section class="card settings-section" v-else-if="activeTab === 'settings'">
-        <h2>⚙️ Tetapan Sistem & Jenama</h2>
-        <p class="muted">Ubah nama, logo, latar belakang, dan bahasa aplikasi RosakAlert.</p>
+      <div v-else-if="activeTab === 'settings'">
+        <section class="card settings-section">
+          <h2>⚙️ Tetapan Sistem & Jenama</h2>
+          <p class="muted">Ubah nama, logo, latar belakang, dan bahasa aplikasi RosakAlert.</p>
 
-        <form @submit.prevent="saveSettings">
-          <label for="appName">Nama Aplikasi
-            <input type="text" id="appName" v-model="settingsForm.appName" required placeholder="cth: RosakAlert" />
-          </label>
-
-          <label>Logo Aplikasi (Pilihan)
-            <div class="logo-setting-container">
-              <div class="logo-preview-box" v-if="settings.appLogo || tempLogoPreview">
-                <img :src="tempLogoPreview || settings.appLogo" class="logo-preview-img" alt="Pratonton Logo" />
-                <button type="button" class="btn-clear-asset" @click="clearLogoAsset">Buang Logo ❌</button>
-              </div>
-              <input type="file" ref="logoInput" accept="image/*" @change="onLogoChange" />
-            </div>
-          </label>
-
-          <label>Latar Belakang Utama (Root Screen)
-            <div class="bg-type-selector">
-              <label class="radio-inline">
-                <input type="radio" value="default" v-model="settingsForm.backgroundType" /> Default Grid
-              </label>
-              <label class="radio-inline">
-                <input type="radio" value="css" v-model="settingsForm.backgroundType" /> Custom CSS Gradient
-              </label>
-              <label class="radio-inline">
-                <input type="radio" value="image" v-model="settingsForm.backgroundType" /> Gambar Latar Belakang
-              </label>
-            </div>
-          </label>
-
-          <!-- Conditionally show inputs based on backgroundType -->
-          <div v-if="settingsForm.backgroundType === 'css'" class="settings-subgroup">
-            <label for="backgroundCss">CSS Gradient / Latar Belakang
-              <textarea id="backgroundCss" v-model="settingsForm.backgroundCss" rows="2" placeholder="cth: linear-gradient(135deg, #0f1419 0%, #1a2029 100%)"></textarea>
+          <form @submit.prevent="saveSettings">
+            <label for="appName">Nama Aplikasi
+              <input type="text" id="appName" v-model="settingsForm.appName" required placeholder="cth: RosakAlert" />
             </label>
-          </div>
 
-          <div v-if="settingsForm.backgroundType === 'image'" class="settings-subgroup">
-            <label>Muat Naik Gambar Latar Belakang
-              <div class="bg-setting-container">
-                <div class="bg-preview-box" v-if="settings.backgroundImage || tempBgPreview">
-                  <img :src="tempBgPreview || settings.backgroundImage" class="bg-preview-img" alt="Pratonton Gambar Latar" />
-                  <button type="button" class="btn-clear-asset" @click="clearBgImageAsset">Buang Gambar ❌</button>
+            <label>Logo Aplikasi (Pilihan)
+              <div class="logo-setting-container">
+                <div class="logo-preview-box" v-if="settings.appLogo || tempLogoPreview">
+                  <img :src="tempLogoPreview || settings.appLogo" class="logo-preview-img" alt="Pratonton Logo" />
+                  <button type="button" class="btn-clear-asset" @click="clearLogoAsset">Buang Logo ❌</button>
                 </div>
-                <input type="file" ref="bgInput" accept="image/*" @change="onBgChange" />
+                <input type="file" ref="logoInput" accept="image/*" @change="onLogoChange" />
               </div>
             </label>
-          </div>
 
-          <label>Bahasa Aktif
-            <div class="languages-selector">
-              <label class="checkbox-inline">
-                <input type="checkbox" value="ms" v-model="settingsForm.languages" /> Bahasa Melayu (ms)
-              </label>
-              <label class="checkbox-inline">
-                <input type="checkbox" value="en" v-model="settingsForm.languages" /> English (en)
+            <label>Latar Belakang Utama (Root Screen)
+              <div class="bg-type-selector">
+                <label class="radio-inline">
+                  <input type="radio" value="default" v-model="settingsForm.backgroundType" /> Default Grid
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" value="css" v-model="settingsForm.backgroundType" /> Custom CSS Gradient
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" value="image" v-model="settingsForm.backgroundType" /> Gambar Latar Belakang
+                </label>
+              </div>
+            </label>
+
+            <!-- Conditionally show inputs based on backgroundType -->
+            <div v-if="settingsForm.backgroundType === 'css'" class="settings-subgroup">
+              <label for="backgroundCss">CSS Gradient / Latar Belakang
+                <textarea id="backgroundCss" v-model="settingsForm.backgroundCss" rows="2" placeholder="cth: linear-gradient(135deg, #0f1419 0%, #1a2029 100%)"></textarea>
               </label>
             </div>
-            <p class="error" v-if="settingsForm.languages.length === 0">Sila pilih sekurang-kurangnya satu bahasa.</p>
-          </label>
 
-          <p class="error" v-if="settingsError">{{ settingsError }}</p>
-          <p class="success-text" v-if="settingsSuccess">{{ settingsSuccess }}</p>
+            <div v-if="settingsForm.backgroundType === 'image'" class="settings-subgroup">
+              <label>Muat Naik Gambar Latar Belakang
+                <div class="bg-setting-container">
+                  <div class="bg-preview-box" v-if="settings.backgroundImage || tempBgPreview">
+                    <img :src="tempBgPreview || settings.backgroundImage" class="bg-preview-img" alt="Pratonton Gambar Latar" />
+                    <button type="button" class="btn-clear-asset" @click="clearBgImageAsset">Buang Gambar ❌</button>
+                  </div>
+                  <input type="file" ref="bgInput" accept="image/*" @change="onBgChange" />
+                </div>
+              </label>
+            </div>
 
-          <button class="btn" :disabled="busy || settingsForm.languages.length === 0">
-            {{ busy ? "Menyimpan..." : "Simpan Tetapan" }}
-          </button>
-        </form>
-      </section>
+            <label>Bahasa Aktif
+              <div class="languages-selector">
+                <label class="checkbox-inline">
+                  <input type="checkbox" value="ms" v-model="settingsForm.languages" /> Bahasa Melayu (ms)
+                </label>
+                <label class="checkbox-inline">
+                  <input type="checkbox" value="en" v-model="settingsForm.languages" /> English (en)
+                </label>
+              </div>
+              <p class="error" v-if="settingsForm.languages.length === 0">Sila pilih sekurang-kurangnya satu bahasa.</p>
+            </label>
+
+            <p class="error" v-if="settingsError">{{ settingsError }}</p>
+            <p class="success-text" v-if="settingsSuccess">{{ settingsSuccess }}</p>
+
+            <button class="btn" :disabled="busy || settingsForm.languages.length === 0">
+              {{ busy ? "Menyimpan..." : "Simpan Tetapan" }}
+            </button>
+          </form>
+        </section>
+
+        <!-- New section: Recipients management -->
+        <section class="card recipients-section">
+          <h2>👥 Penerima Laporan (WhatsApp & E-mel)</h2>
+          <p class="muted">Urus kontak penyelenggara kolej untuk menghantar notifikasi aduan kerosakan.</p>
+
+          <form @submit.prevent="addRecipient" class="recipient-form">
+            <div class="recipient-form-grid">
+              <label>Nama Kontak
+                <input type="text" v-model="recipientForm.name" required placeholder="cth: En. Ahmad (Elektrikal)" />
+              </label>
+              <label>Alamat E-mel
+                <input type="email" v-model="recipientForm.email" required placeholder="cth: ahmad@kolej.edu.my" />
+              </label>
+              <label>No. Telefon (WhatsApp)
+                <input type="text" v-model="recipientForm.phone" required placeholder="cth: +60123456789" />
+              </label>
+            </div>
+            <button class="btn btn-add-recipient" :disabled="busy">
+              Tambah Penerima
+            </button>
+          </form>
+
+          <div class="recipients-list-wrapper" v-if="recipients.length > 0">
+            <table class="recipients-table">
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>E-mel</th>
+                  <th>WhatsApp</th>
+                  <th>Tindakan</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in recipients" :key="r.id">
+                  <td class="cell-name">{{ r.name }}</td>
+                  <td class="cell-email">{{ r.email }}</td>
+                  <td class="cell-phone">{{ r.phone }}</td>
+                  <td class="cell-action">
+                    <button type="button" class="btn-delete-rec" @click="deleteRecipient(r.id)">Padam 🗑️</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted empty-recipients" v-else>Tiada penerima aduan dikonfigurasikan.</p>
+        </section>
+      </div>
     </main>
 
     <!-- Login Dialog Overlay (if not logged in) -->
@@ -256,6 +327,11 @@
 
         const logoInput = ref(null);
         const bgInput = ref(null);
+
+        // Recipients state
+        const recipients = ref([]);
+        const recipientForm = reactive({ name: "", email: "", phone: "" });
+        const activeShareReportId = ref(null);
 
         async function load() {
           const q = filter.value ? `?status=${filter.value}` : "";
@@ -396,6 +472,92 @@
           }
         }
 
+        async function loadRecipients() {
+          try {
+            const res = await fetch("/api/recipients");
+            if (res.ok) {
+              recipients.value = await res.json();
+            }
+          } catch (e) {
+            console.error("Gagal memuatkan penerima:", e);
+          }
+        }
+
+        async function addRecipient() {
+          busy.value = true;
+          try {
+            const res = await fetch("/api/recipients", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(recipientForm),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gagal menambah penerima");
+            recipientForm.name = "";
+            recipientForm.email = "";
+            recipientForm.phone = "";
+            loadRecipients();
+          } catch (err) {
+            alert(err.message);
+          } finally {
+            busy.value = false;
+          }
+        }
+
+        async function deleteRecipient(id) {
+          if (!confirm("Adakah anda pasti mahu memadam penerima ini?")) return;
+          try {
+            const res = await fetch(`/api/recipients/${id}`, { method: "DELETE" });
+            if (res.ok) {
+              loadRecipients();
+            } else {
+              const data = await res.json();
+              alert(data.error || "Gagal memadam penerima");
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        function toggleShareMenu(reportId) {
+          activeShareReportId.value = activeShareReportId.value === reportId ? null : reportId;
+        }
+
+        function getWhatsAppLink(phone, report) {
+          const baseUrl = window.location.origin;
+          const photoLink = report.photo ? `\nGambar: ${baseUrl}${report.photo}` : '';
+          const msg = `📢 *LAPORAN KEROSAKAN BARU* 📢\n\n` +
+            `*Rujukan:* ${report.ref}\n` +
+            `*Lokasi:* ${report.building}${report.floor ? ', ' + report.floor : ''}${report.room ? ', ' + report.room : ''}\n` +
+            `*Kategori:* ${report.category || 'Tiada'}\n` +
+            `*Keterangan:* ${report.description || 'Tiada'}\n` +
+            `*Pelapor:* ${report.reporter || 'Tanpa nama'}\n` +
+            `*Masa:* ${report.created_at}\n` +
+            `*Status:* ${report.status.toUpperCase()}${photoLink}`;
+          
+          let cleanPhone = phone.replace(/[^\d+]/g, '');
+          if (cleanPhone.startsWith('0')) {
+            cleanPhone = '6' + cleanPhone;
+          }
+          return `https://api.whatsapp.com/send?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(msg)}`;
+        }
+
+        function getEmailLink(email, report) {
+          const baseUrl = window.location.origin;
+          const photoLink = report.photo ? `\nGambar: ${baseUrl}${report.photo}` : '';
+          const subject = `Laporan Kerosakan: ${report.ref} (${report.building})`;
+          const body = `Salam Sejahtera,\n\nBerikut adalah butiran laporan kerosakan yang didaftarkan:\n\n` +
+            `No. Rujukan: ${report.ref}\n` +
+            `Lokasi: ${report.building}${report.floor ? ', ' + report.floor : ''}${report.room ? ', ' + report.room : ''}\n` +
+            `Kategori: ${report.category || 'Tiada'}\n` +
+            `Keterangan: ${report.description || 'Tiada'}\n` +
+            `Pelapor: ${report.reporter || 'Tanpa nama'}\n` +
+            `Masa Laporan: ${report.created_at}\n` +
+            `Status: ${report.status.toUpperCase()}\n${photoLink}\n\nSila ambil tindakan sewajarnya. Terima kasih.`;
+          
+          return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        }
+
         async function checkAuth() {
           try {
             const res = await fetch("/api/auth/status");
@@ -403,6 +565,7 @@
             if (data.authenticated) {
               isAuthenticated.value = true;
               load();
+              loadRecipients();
             } else {
               isAuthenticated.value = false;
             }
@@ -425,6 +588,7 @@
             isAuthenticated.value = true;
             loginForm.password = "";
             load();
+            loadRecipients();
           } catch (err) {
             loginError.value = err.message;
           } finally {
@@ -476,7 +640,16 @@
           onBgChange,
           clearLogoAsset,
           clearBgImageAsset,
-          saveSettings
+          saveSettings,
+          // Recipients properties
+          recipients,
+          recipientForm,
+          activeShareReportId,
+          addRecipient,
+          deleteRecipient,
+          toggleShareMenu,
+          getWhatsAppLink,
+          getEmailLink
         };
       },
     }).mount("#app");
