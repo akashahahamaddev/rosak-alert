@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RosakAlert — Lapor Kerosakan</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <h1>🛠️ RosakAlert</h1>
+      <a class="link" href="/admin.html">Panel Pentadbir →</a>
+    </header>
+
+    <main class="wrap">
+      <div class="card" v-if="!submitted">
+        <h2>Lapor Kerosakan</h2>
+        <p class="muted">Snap gambar, isi lokasi, hantar. Semudah itu.</p>
+
+        <form @submit.prevent="submit">
+          <label>Gambar kerosakan
+            <input type="file" accept="image/*" capture="environment" @change="onFile" />
+          </label>
+          <img v-if="preview" :src="preview" class="preview" alt="pratonton" />
+
+          <label>Nama pelajar (pilihan)
+            <input v-model="form.reporter" placeholder="cth: Ali bin Abu" />
+          </label>
+
+          <label>Bangunan / Blok <span class="req">*</span>
+            <input v-model="form.building" required placeholder="cth: Blok A, Dewan Utama" />
+          </label>
+
+          <div class="row">
+            <label>Tingkat / Aras
+              <input v-model="form.floor" placeholder="cth: Aras 2" />
+            </label>
+            <label>Bilik / Kawasan
+              <input v-model="form.room" placeholder="cth: Bilik 204, Tandas" />
+            </label>
+          </div>
+
+          <label>Jenis kerosakan
+            <select v-model="form.category">
+              <option value="">— pilih —</option>
+              <option>Elektrik</option>
+              <option>Paip / Air</option>
+              <option>Perabot</option>
+              <option>Pintu / Tingkap</option>
+              <option>Penyaman Udara</option>
+              <option>Lain-lain</option>
+            </select>
+          </label>
+
+          <label>Keterangan
+            <textarea v-model="form.description" rows="3" placeholder="Terangkan kerosakan..."></textarea>
+          </label>
+
+          <p class="error" v-if="error">{{ error }}</p>
+          <button class="btn" :disabled="busy">{{ busy ? "Menghantar..." : "Hantar Laporan" }}</button>
+        </form>
+      </div>
+
+      <div class="card success" v-else>
+        <h2>✅ Laporan diterima!</h2>
+        <p>Nombor rujukan anda:</p>
+        <p class="ref">{{ result.ref }}</p>
+        <p class="muted">Lokasi: {{ result.building }}<span v-if="result.floor">, {{ result.floor }}</span><span v-if="result.room">, {{ result.room }}</span></p>
+        <button class="btn" @click="reset">Lapor Lagi</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script>
+    const { createApp, reactive, ref } = Vue;
+    createApp({
+      setup() {
+        const blank = () => ({ reporter: "", building: "", floor: "", room: "", category: "", description: "" });
+        const form = reactive(blank());
+        const file = ref(null);
+        const preview = ref("");
+        const busy = ref(false);
+        const error = ref("");
+        const submitted = ref(false);
+        const result = ref({});
+
+        function onFile(e) {
+          const f = e.target.files[0];
+          file.value = f || null;
+          preview.value = f ? URL.createObjectURL(f) : "";
+        }
+
+        async function submit() {
+          error.value = "";
+          if (!form.building.trim()) { error.value = "Sila isi bangunan/lokasi."; return; }
+          busy.value = true;
+          try {
+            const fd = new FormData();
+            Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+            if (file.value) fd.append("photo", file.value);
+            const res = await fetch("/api/reports", { method: "POST", body: fd });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gagal menghantar");
+            result.value = data;
+            submitted.value = true;
+          } catch (err) {
+            error.value = err.message;
+          } finally {
+            busy.value = false;
+          }
+        }
+
+        function reset() {
+          Object.assign(form, blank());
+          file.value = null;
+          preview.value = "";
+          submitted.value = false;
+          error.value = "";
+        }
+
+        return { form, preview, busy, error, submitted, result, onFile, submit, reset };
+      },
+    }).mount("#app");
+  </script>
+</body>
+</html>

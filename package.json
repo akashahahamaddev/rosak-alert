@@ -1,0 +1,16 @@
+{
+  "name": "rosak-alert",
+  "version": "1.0.0",
+  "description": "Sistem laporan kerosakan untuk institusi pengajian - pelajar snap gambar, sistem urus lokasi secara automatik",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "multer": "^2.2.0"
+  }
+}

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RosakAlert — Panel Pentadbir</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <h1>🛠️ RosakAlert · Pentadbir</h1>
+      <a class="link" href="/">← Borang Laporan</a>
+    </header>
+
+    <main class="wrap wide">
+      <!-- Summary cards -->
+      <section class="stats">
+        <div class="stat"><span class="big">{{ stats.total }}</span> Jumlah</div>
+        <div class="stat baru"><span class="big">{{ count('baru') }}</span> Baru</div>
+        <div class="stat proses"><span class="big">{{ count('dalam_proses') }}</span> Dalam Proses</div>
+        <div class="stat selesai"><span class="big">{{ count('selesai') }}</span> Selesai</div>
+      </section>
+
+      <!-- By building -->
+      <section class="card" v-if="stats.byBuilding && stats.byBuilding.length">
+        <h2>Kerosakan mengikut lokasi</h2>
+        <table class="mini">
+          <thead><tr><th>Bangunan/Blok</th><th>Jumlah</th><th>Baru</th><th>Proses</th><th>Selesai</th></tr></thead>
+          <tbody>
+            <tr v-for="b in stats.byBuilding" :key="b.building">
+              <td>{{ b.building }}</td><td>{{ b.total }}</td>
+              <td>{{ b.baru }}</td><td>{{ b.dalam_proses }}</td><td>{{ b.selesai }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Filter -->
+      <section class="filters">
+        <button :class="['chip', filter===''&&'on']" @click="setFilter('')">Semua</button>
+        <button :class="['chip', filter==='baru'&&'on']" @click="setFilter('baru')">Baru</button>
+        <button :class="['chip', filter==='dalam_proses'&&'on']" @click="setFilter('dalam_proses')">Dalam Proses</button>
+        <button :class="['chip', filter==='selesai'&&'on']" @click="setFilter('selesai')">Selesai</button>
+      </section>
+
+      <!-- Reports -->
+      <section class="grid">
+        <article class="card report" v-for="r in reports" :key="r.id">
+          <a v-if="r.photo" :href="r.photo" target="_blank">
+            <img :src="r.photo" class="thumb" alt="gambar" />
+          </a>
+          <div v-else class="thumb noimg">Tiada gambar</div>
+          <div class="report-body">
+            <div class="report-head">
+              <span class="ref-sm">{{ r.ref }}</span>
+              <span :class="['badge', r.status]">{{ label(r.status) }}</span>
+            </div>
+            <p class="loc">📍 {{ r.building }}<span v-if="r.floor">, {{ r.floor }}</span><span v-if="r.room">, {{ r.room }}</span></p>
+            <p class="cat" v-if="r.category">{{ r.category }}</p>
+            <p class="desc" v-if="r.description">{{ r.description }}</p>
+            <p class="meta">{{ r.reporter || 'Tanpa nama' }} · {{ r.created_at }}</p>
+            <div class="actions">
+              <select :value="r.status" @change="update(r, $event.target.value)">
+                <option value="baru">Baru</option>
+                <option value="dalam_proses">Dalam Proses</option>
+                <option value="selesai">Selesai</option>
+              </select>
+            </div>
+          </div>
+        </article>
+        <p v-if="!reports.length" class="muted empty">Tiada laporan.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+      setup() {
+        const reports = ref([]);
+        const stats = ref({ total: 0, byStatus: [], byBuilding: [] });
+        const filter = ref("");
+        const LABELS = { baru: "Baru", dalam_proses: "Dalam Proses", selesai: "Selesai" };
+        const label = (s) => LABELS[s] || s;
+        const count = (s) => (stats.value.byStatus.find((x) => x.status === s)?.n) || 0;
+
+        async function load() {
+          const q = filter.value ? `?status=${filter.value}` : "";
+          const [rep, st] = await Promise.all([
+            fetch("/api/reports" + q).then((r) => r.json()),
+            fetch("/api/stats").then((r) => r.json()),
+          ]);
+          reports.value = rep;
+          stats.value = st;
+        }
+        function setFilter(f) { filter.value = f; load(); }
+        async function update(r, status) {
+          await fetch("/api/reports/" + r.id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+          });
+          load();
+        }
+        onMounted(load);
+        return { reports, stats, filter, label, count, setFilter, update };
+      },
+    }).mount("#app");
+  </script>
+</body>
+</html>
