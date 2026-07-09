@@ -297,16 +297,16 @@
         function applyBackground(s) {
           if (s.backgroundType === "css") {
             document.body.style.background = s.backgroundCss;
-            document.body.style.backgroundImage = "none";
           } else if (s.backgroundType === "image" && s.backgroundImage) {
-            document.body.style.backgroundImage = `url('${s.backgroundImage}')`;
+            document.body.style.background = `url('${s.backgroundImage}') no-repeat center center fixed`;
             document.body.style.backgroundSize = "cover";
-            document.body.style.backgroundPosition = "center";
-            document.body.style.backgroundAttachment = "fixed";
           } else {
-            // default
-            document.body.style.background = "var(--bg)";
-            document.body.style.backgroundImage = "none";
+            // default: clear inline styles to allow style.css grid/gradient to show
+            document.body.style.background = "";
+            document.body.style.backgroundImage = "";
+            document.body.style.backgroundSize = "";
+            document.body.style.backgroundPosition = "";
+            document.body.style.backgroundAttachment = "";
           }
         }
 
