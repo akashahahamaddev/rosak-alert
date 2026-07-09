@@ -1131,6 +1131,9 @@ input:focus, select:focus, textarea:focus {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    min-height: auto;
+    padding: 24px 16px;
+    margin-top: 12px;
   }
 }
 
