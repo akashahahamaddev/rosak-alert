@@ -424,105 +424,235 @@ input:focus, select:focus, textarea:focus {
 /* --- Admin Tabs --- */
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: 28px;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
+  padding-bottom: 2px;
 }
 .tab-btn {
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   color: var(--muted);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 8px 4px 12px 4px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  position: relative;
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .tab-btn:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
 }
 .tab-btn.active {
-  background: rgba(46, 163, 107, 0.12);
   color: var(--accent-hi);
-  border-color: rgba(46, 163, 107, 0.24);
+}
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: var(--accent-hi);
+  box-shadow: 0 0 10px rgba(55, 192, 127, 0.4);
+  border-radius: 2px;
 }
 
-/* --- Settings Config Panels --- */
-.logo-setting-container, .bg-setting-container {
+/* --- Form Layout & Grid Elements --- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* --- Upload Containers (Logo & BG) --- */
+.logo-setting-container-v2, .bg-setting-container-v2 {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-top: 8px;
-  background: var(--bg);
+  background: rgba(9, 13, 18, 0.4);
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 16px;
+  min-height: 94px;
+  justify-content: center;
 }
 .logo-preview-box, .bg-preview-box {
   display: flex;
   align-items: center;
   gap: 16px;
 }
-.logo-preview-img {
-  height: 48px;
-  width: auto;
-  object-fit: contain;
-  border-radius: 4px;
-  background: #2a333f;
-  padding: 4px;
-}
-.bg-preview-img {
-  height: 60px;
-  width: 100px;
+.logo-preview-img-circular {
+  height: 52px;
+  width: 52px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(46, 163, 107, 0.2);
+}
+.bg-preview-img-rect {
+  height: 56px;
+  width: 90px;
+  object-fit: cover;
+  border-radius: 8px;
   border: 1px solid var(--line);
 }
-.btn-clear-asset {
-  background: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.3);
+.btn-clear-asset-sm {
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.15);
   color: #ff6b6b;
   padding: 6px 12px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
-.btn-clear-asset:hover {
-  background: rgba(255, 107, 107, 0.2);
+.btn-clear-asset-sm:hover {
+  background: #ff6b6b;
+  color: #fff;
+  border-color: #ff6b6b;
 }
-
-.bg-type-selector, .languages-selector {
-  display: flex;
-  gap: 20px;
-  margin-top: 8px;
-  padding: 10px 12px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-.radio-inline, .checkbox-inline {
+.upload-trigger-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--text);
-  font-size: 14px;
-  cursor: pointer;
-  margin: 0;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-.radio-inline input, .checkbox-inline input {
-  width: auto;
-  margin: 0;
+.btn-upload-trigger {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-upload-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.selected-filename {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+.selected-filename.empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 12.5px;
+}
+
+/* --- Segmented Controls --- */
+.segmented-control {
+  display: flex;
+  background: rgba(9, 13, 18, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px;
+  margin-top: 8px;
+  gap: 4px;
+}
+.segmented-control button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.segmented-control button:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+.segmented-control button.active {
+  color: #fff;
+  background: rgba(46, 163, 107, 0.15);
+  border: 1px solid rgba(46, 163, 107, 0.3);
+  box-shadow: 0 2px 8px rgba(46, 163, 107, 0.1);
+}
+
+/* --- Segmented Checkboxes (Language selection buttons) --- */
+.segmented-checkboxes {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.segmented-checkboxes button {
+  background: rgba(9, 13, 18, 0.6);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+.segmented-checkboxes button .indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: transparent;
+  transition: all 0.2s ease;
+}
+.segmented-checkboxes button:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.segmented-checkboxes button.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: rgba(46, 163, 107, 0.08);
+}
+.segmented-checkboxes button.active .indicator {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .settings-subgroup {
   margin-top: 14px;
   padding-left: 16px;
   border-left: 2px solid var(--accent);
+}
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 20px;
+}
+.form-footer .btn {
+  width: auto;
+  min-width: 160px;
+  margin-top: 0;
 }
 
 .success-text {

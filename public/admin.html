@@ -116,37 +116,38 @@
       </div>
 
       <!-- Tab 2: System Settings -->
-      <div v-else-if="activeTab === 'settings'">
+      <div v-else-if="activeTab === 'settings'" class="settings-tab-wrapper">
         <section class="card settings-section">
           <h2>⚙️ Tetapan Sistem & Jenama</h2>
-          <p class="muted">Ubah nama, logo, latar belakang, dan bahasa aplikasi RosakAlert.</p>
+          <p class="muted">Kustomkan identiti, skema latar belakang, dan bahasa aplikasi aduan anda.</p>
 
           <form @submit.prevent="saveSettings">
-            <label for="appName">Nama Aplikasi
-              <input type="text" id="appName" v-model="settingsForm.appName" required placeholder="cth: RosakAlert" />
-            </label>
+            <div class="form-grid">
+              <label for="appName">Nama Aplikasi
+                <input type="text" id="appName" v-model="settingsForm.appName" required placeholder="cth: RosakAlert" />
+              </label>
 
-            <label>Logo Aplikasi (Pilihan)
-              <div class="logo-setting-container">
-                <div class="logo-preview-box" v-if="settings.appLogo || tempLogoPreview">
-                  <img :src="tempLogoPreview || settings.appLogo" class="logo-preview-img" alt="Pratonton Logo" />
-                  <button type="button" class="btn-clear-asset" @click="clearLogoAsset">Buang Logo ❌</button>
+              <label>Logo Aplikasi (Pilihan)
+                <div class="logo-setting-container-v2">
+                  <div class="logo-preview-box" v-if="settings.appLogo || tempLogoPreview">
+                    <img :src="tempLogoPreview || settings.appLogo" class="logo-preview-img-circular" alt="Logo" />
+                    <button type="button" class="btn-clear-asset-sm" @click="clearLogoAsset">Buang Logo ❌</button>
+                  </div>
+                  <div class="upload-trigger-row">
+                    <button type="button" class="btn-upload-trigger" @click="$refs.logoInput.click()">📁 Pilih Gambar Logo...</button>
+                    <span class="selected-filename" v-if="logoFile">{{ logoFile.name }}</span>
+                    <span class="selected-filename empty" v-else>Tiada fail dipilih</span>
+                  </div>
+                  <input type="file" ref="logoInput" accept="image/*" @change="onLogoChange" style="display: none;" />
                 </div>
-                <input type="file" ref="logoInput" accept="image/*" @change="onLogoChange" />
-              </div>
-            </label>
+              </label>
+            </div>
 
             <label>Latar Belakang Utama (Root Screen)
-              <div class="bg-type-selector">
-                <label class="radio-inline">
-                  <input type="radio" value="default" v-model="settingsForm.backgroundType" /> Default Grid
-                </label>
-                <label class="radio-inline">
-                  <input type="radio" value="css" v-model="settingsForm.backgroundType" /> Custom CSS Gradient
-                </label>
-                <label class="radio-inline">
-                  <input type="radio" value="image" v-model="settingsForm.backgroundType" /> Gambar Latar Belakang
-                </label>
+              <div class="segmented-control">
+                <button type="button" :class="{ active: settingsForm.backgroundType === 'default' }" @click="settingsForm.backgroundType = 'default'">Default Grid</button>
+                <button type="button" :class="{ active: settingsForm.backgroundType === 'css' }" @click="settingsForm.backgroundType = 'css'">Custom CSS Gradient</button>
+                <button type="button" :class="{ active: settingsForm.backgroundType === 'image' }" @click="settingsForm.backgroundType = 'image'">Gambar Latar</button>
               </div>
             </label>
 
@@ -159,24 +160,29 @@
 
             <div v-if="settingsForm.backgroundType === 'image'" class="settings-subgroup">
               <label>Muat Naik Gambar Latar Belakang
-                <div class="bg-setting-container">
+                <div class="bg-setting-container-v2">
                   <div class="bg-preview-box" v-if="settings.backgroundImage || tempBgPreview">
-                    <img :src="tempBgPreview || settings.backgroundImage" class="bg-preview-img" alt="Pratonton Gambar Latar" />
-                    <button type="button" class="btn-clear-asset" @click="clearBgImageAsset">Buang Gambar ❌</button>
+                    <img :src="tempBgPreview || settings.backgroundImage" class="bg-preview-img-rect" alt="Latar Belakang" />
+                    <button type="button" class="btn-clear-asset-sm" @click="clearBgImageAsset">Buang Gambar ❌</button>
                   </div>
-                  <input type="file" ref="bgInput" accept="image/*" @change="onBgChange" />
+                  <div class="upload-trigger-row">
+                    <button type="button" class="btn-upload-trigger" @click="$refs.bgInput.click()">🖼️ Pilih Fail Gambar...</button>
+                    <span class="selected-filename" v-if="bgFile">{{ bgFile.name }}</span>
+                    <span class="selected-filename empty" v-else>Tiada fail dipilih</span>
+                  </div>
+                  <input type="file" ref="bgInput" accept="image/*" @change="onBgChange" style="display: none;" />
                 </div>
               </label>
             </div>
 
             <label>Bahasa Aktif
-              <div class="languages-selector">
-                <label class="checkbox-inline">
-                  <input type="checkbox" value="ms" v-model="settingsForm.languages" /> Bahasa Melayu (ms)
-                </label>
-                <label class="checkbox-inline">
-                  <input type="checkbox" value="en" v-model="settingsForm.languages" /> English (en)
-                </label>
+              <div class="segmented-checkboxes">
+                <button type="button" :class="{ active: settingsForm.languages.includes('ms') }" @click="toggleLanguage('ms')">
+                  <span class="indicator">✓</span> Bahasa Melayu (ms)
+                </button>
+                <button type="button" :class="{ active: settingsForm.languages.includes('en') }" @click="toggleLanguage('en')">
+                  <span class="indicator">✓</span> English (en)
+                </button>
               </div>
               <p class="error" v-if="settingsForm.languages.length === 0">Sila pilih sekurang-kurangnya satu bahasa.</p>
             </label>
@@ -184,9 +190,11 @@
             <p class="error" v-if="settingsError">{{ settingsError }}</p>
             <p class="success-text" v-if="settingsSuccess">{{ settingsSuccess }}</p>
 
-            <button class="btn" :disabled="busy || settingsForm.languages.length === 0">
-              {{ busy ? "Menyimpan..." : "Simpan Tetapan" }}
-            </button>
+            <div class="form-footer">
+              <button class="btn btn-primary" :disabled="busy || settingsForm.languages.length === 0">
+                {{ busy ? "Menyimpan..." : "Simpan Tetapan" }}
+              </button>
+            </div>
           </form>
         </section>
 
@@ -196,7 +204,7 @@
           <p class="muted">Urus kontak penyelenggara kolej untuk menghantar notifikasi aduan kerosakan.</p>
 
           <form @submit.prevent="addRecipient" class="recipient-form">
-            <div class="recipient-form-grid">
+            <div class="recipient-grid">
               <label>Nama Kontak
                 <input type="text" v-model="recipientForm.name" required placeholder="cth: En. Ahmad (Elektrikal)" />
               </label>
@@ -206,10 +214,10 @@
               <label>No. Telefon (WhatsApp)
                 <input type="text" v-model="recipientForm.phone" required placeholder="cth: +60123456789" />
               </label>
+              <div class="btn-col">
+                <button class="btn btn-primary" :disabled="busy">Tambah</button>
+              </div>
             </div>
-            <button class="btn btn-add-recipient" :disabled="busy">
-              Tambah Penerima
-            </button>
           </form>
 
           <div class="recipients-list-wrapper" v-if="recipients.length > 0">
@@ -421,6 +429,17 @@
           bgFile.value = null;
           clearBgImage.value = true;
           if (bgInput.value) bgInput.value.value = "";
+        }
+
+        function toggleLanguage(lang) {
+          const index = settingsForm.languages.indexOf(lang);
+          if (index > -1) {
+            if (settingsForm.languages.length > 1) {
+              settingsForm.languages.splice(index, 1);
+            }
+          } else {
+            settingsForm.languages.push(lang);
+          }
         }
 
         async function saveSettings() {
@@ -641,6 +660,7 @@
           clearLogoAsset,
           clearBgImageAsset,
           saveSettings,
+          toggleLanguage,
           // Recipients properties
           recipients,
           recipientForm,
