@@ -337,6 +337,24 @@ app.patch("/api/reports/:id", authMiddleware, (req, res) => {
   res.json(db.prepare("SELECT * FROM reports WHERE id=?").get(req.params.id));
 });
 
+// Delete a report (Admin only)
+app.delete("/api/reports/:id", authMiddleware, (req, res) => {
+  const row = db.prepare("SELECT * FROM reports WHERE id=?").get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Laporan tidak dijumpai" });
+
+  // Delete image file if exists
+  if (row.photo) {
+    const filename = row.photo.replace("/uploads/", "");
+    const filepath = join(UPLOAD_DIR, filename);
+    fs.unlink(filepath, (err) => {
+      if (err) console.error("Ralat memadam fail gambar:", err);
+    });
+  }
+
+  db.prepare("DELETE FROM reports WHERE id=?").run(req.params.id);
+  res.json({ success: true, message: "Laporan berjaya dipadam" });
+});
+
 // --- Recipients APIs (Admin only) ---
 app.get("/api/recipients", authMiddleware, (req, res) => {
   try {
