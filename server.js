@@ -149,6 +149,7 @@ const upload = multer({
 
 // --- App ------------------------------------------------------------------
 const app = express();
+app.set("trust proxy", true);
 app.use(express.json());
 app.use(express.static(join(__dirname, "public")));
 app.use("/uploads", express.static(UPLOAD_DIR));
