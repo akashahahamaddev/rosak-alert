@@ -96,26 +96,36 @@ if (adminExists.count === 0) {
 const settingsCount = db.prepare("SELECT COUNT(*) as count FROM settings").get();
 if (settingsCount.count === 0) {
   const defaultSettings = [
-    { key: "appName", value: "RosakAlert" },
-    { key: "appLogo", value: "" },
-    { key: "backgroundType", value: "default" }, // default, css, image
+    { key: "appName", value: "CAMPUSFIX.ORG" },
+    { key: "appLogo", value: "/images/logo.png" },
+    { key: "backgroundType", value: "image" }, // default, css, image
     { key: "backgroundCss", value: "linear-gradient(135deg, #0f1419 0%, #1a2029 100%)" },
-    { key: "backgroundImage", value: "" },
-    { key: "languages", value: JSON.stringify(["ms", "en"]) }, // allow both ms and en by default
-    { key: "aboutTitle", value: "Tentang RosakAlert" },
+    { key: "backgroundImage", value: "/images/bg-campus.png" },
+    { key: "languages", value: JSON.stringify(["ms", "en"]) },
+    { key: "aboutTitle", value: "Tentang Campusfix.org" },
     { key: "aboutContent", value: "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera." }
   ];
-  const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
-  for (const s of defaultSettings) {
-    stmt.run(s.key, s.value);
+
+  if (settingsCount.count === 0) {
+    const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+    for (const s of defaultSettings) {
+      stmt.run(s.key, s.value);
+    }
+    console.log("[SEED] Tetapan lalai dicipta.");
+  } else {
+    // Update existing database settings if they were on old defaults
+    const appNameRow = db.prepare("SELECT value FROM settings WHERE key='appName'").get();
+    if (appNameRow && appNameRow.value === "RosakAlert") {
+      db.prepare("UPDATE settings SET value='CAMPUSFIX.ORG' WHERE key='appName'").run();
+      db.prepare("UPDATE settings SET value='/images/logo.png' WHERE key='appLogo'").run();
+      db.prepare("UPDATE settings SET value='image' WHERE key='backgroundType'").run();
+      db.prepare("UPDATE settings SET value='/images/bg-campus.png' WHERE key='backgroundImage'").run();
+      db.prepare("UPDATE settings SET value='Tentang Campusfix.org' WHERE key='aboutTitle'").run();
+    }
+    const checkStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+    checkStmt.run("aboutTitle", "Tentang Campusfix.org");
+    checkStmt.run("aboutContent", "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera.");
   }
-  console.log("[SEED] Tetapan lalai dicipta.");
-} else {
-  // Ensure new keys exist if DB was already seeded
-  const checkStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
-  checkStmt.run("aboutTitle", "Tentang RosakAlert");
-  checkStmt.run("aboutContent", "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera.");
-}
 
 const STATUSES = ["baru", "dalam_proses", "selesai"];
 
