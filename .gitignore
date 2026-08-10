@@ -6,3 +6,4 @@ uploads/*
 !uploads/.gitkeep
 .DS_Store
 .claude/
+~$mpusFix_Business_Documentation.docx
