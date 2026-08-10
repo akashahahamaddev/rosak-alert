@@ -9,43 +9,27 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Self-Hosted Server
+    name: Deploy RosakAlert
     runs-on: self-hosted
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Production Dependencies
+      - name: Build and Restart Docker Containers
         run: |
-          npm ci --omit=dev || npm install --production
-
-      - name: Validate Server Syntax
-        run: |
-          node --check server.js
-
-      - name: Ensure Uploads Directory
-        run: |
-          mkdir -p uploads
-
-      - name: Restart Application Service (Port 80 & 443)
-        run: |
-          if command -v docker-compose &> /dev/null && [ -f "docker-compose.yml" ]; then
-            echo "🔄 Deploying RosakAlert via Docker Compose on Port 80 & 443..."
+          if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+            echo "🚀 Rebuilding and deploying with 'docker compose'..."
+            docker compose down || true
+            docker compose build --no-cache
+            docker compose up -d
+          elif command -v docker-compose &> /dev/null; then
+            echo "🚀 Rebuilding and deploying with 'docker-compose'..."
             docker-compose down || true
-            docker-compose up -d --build
-          elif command -v pm2 &> /dev/null; then
-            echo "🔄 Deploying RosakAlert via PM2 on Port 80..."
-            PORT=80 pm2 reload rosak-alert --update-env || PORT=80 pm2 start server.js --name "rosak-alert"
-            pm2 save
+            docker-compose build --no-cache
+            docker-compose up -d
           else
-            echo "🔄 Deploying RosakAlert via Node on Port 80..."
-            pkill -f "node server.js" || true
-            PORT=80 nohup npm start > app.log 2>&1 &
+            echo "❌ Neither 'docker compose' nor 'docker-compose' was found on host."
+            exit 1
           fi
-          echo "✅ RosakAlert deployed successfully on Port 80 & 443!"
+          echo "✅ Container rebuilt and started successfully!"
