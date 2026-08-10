@@ -33,19 +33,19 @@ jobs:
         run: |
           mkdir -p uploads
 
-      - name: Restart Application Service
+      - name: Restart Application Service (Port 80 & 443)
         run: |
-          if command -v pm2 &> /dev/null; then
-            echo "🔄 Restarting RosakAlert via PM2..."
-            pm2 reload rosak-alert || pm2 start server.js --name "rosak-alert"
-            pm2 save
-          elif command -v docker-compose &> /dev/null && [ -f "docker-compose.yml" ]; then
-            echo "🔄 Restarting RosakAlert via Docker Compose..."
-            docker-compose down
+          if command -v docker-compose &> /dev/null && [ -f "docker-compose.yml" ]; then
+            echo "🔄 Deploying RosakAlert via Docker Compose on Port 80 & 443..."
+            docker-compose down || true
             docker-compose up -d --build
+          elif command -v pm2 &> /dev/null; then
+            echo "🔄 Deploying RosakAlert via PM2 on Port 80..."
+            PORT=80 pm2 reload rosak-alert --update-env || PORT=80 pm2 start server.js --name "rosak-alert"
+            pm2 save
           else
-            echo "🔄 Restarting RosakAlert via Node..."
+            echo "🔄 Deploying RosakAlert via Node on Port 80..."
             pkill -f "node server.js" || true
-            nohup npm start > app.log 2>&1 &
+            PORT=80 nohup npm start > app.log 2>&1 &
           fi
-          echo "✅ RosakAlert deployed successfully!"
+          echo "✅ RosakAlert deployed successfully on Port 80 & 443!"
