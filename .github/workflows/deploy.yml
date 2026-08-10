@@ -1,0 +1,51 @@
+name: Deploy RosakAlert System
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Self-Hosted Server
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Production Dependencies
+        run: |
+          npm ci --omit=dev || npm install --production
+
+      - name: Validate Server Syntax
+        run: |
+          node --check server.js
+
+      - name: Ensure Uploads Directory
+        run: |
+          mkdir -p uploads
+
+      - name: Restart Application Service
+        run: |
+          if command -v pm2 &> /dev/null; then
+            echo "🔄 Restarting RosakAlert via PM2..."
+            pm2 reload rosak-alert || pm2 start server.js --name "rosak-alert"
+            pm2 save
+          elif command -v docker-compose &> /dev/null && [ -f "docker-compose.yml" ]; then
+            echo "🔄 Restarting RosakAlert via Docker Compose..."
+            docker-compose down
+            docker-compose up -d --build
+          else
+            echo "🔄 Restarting RosakAlert via Node..."
+            pkill -f "node server.js" || true
+            nohup npm start > app.log 2>&1 &
+          fi
+          echo "✅ RosakAlert deployed successfully!"

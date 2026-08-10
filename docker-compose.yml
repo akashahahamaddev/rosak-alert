@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  rosak-alert:
+    build: .
+    container_name: rosak-alert
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./data.db:/app/data.db
+      - ./data.db-wal:/app/data.db-wal
+      - ./data.db-shm:/app/data.db-shm
