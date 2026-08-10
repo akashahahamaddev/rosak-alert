@@ -2,8 +2,8 @@ node_modules/
 data.db
 data.db-wal
 data.db-shm
+data/
 uploads/*
 !uploads/.gitkeep
 .DS_Store
 .claude/
-~$mpusFix_Business_Documentation.docx

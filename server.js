@@ -45,7 +45,9 @@ function authMiddleware(req, res, next) {
 }
 
 // --- Database setup -------------------------------------------------------
-const db = new Database(join(__dirname, "data.db"));
+const DB_PATH = process.env.DB_PATH || join(__dirname, "data.db");
+fs.mkdirSync(dirname(DB_PATH), { recursive: true });
+const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 db.exec(`
   CREATE TABLE IF NOT EXISTS reports (

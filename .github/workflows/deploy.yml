@@ -16,6 +16,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Ensure Storage Directories
+        run: |
+          mkdir -p uploads data
+
       - name: Build and Restart Docker Containers
         run: |
           if command -v docker &> /dev/null && docker compose version &> /dev/null; then
