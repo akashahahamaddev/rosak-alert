@@ -105,27 +105,25 @@ if (settingsCount.count === 0) {
     { key: "aboutTitle", value: "Tentang Campusfix.org" },
     { key: "aboutContent", value: "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera." }
   ];
-
-  if (settingsCount.count === 0) {
-    const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
-    for (const s of defaultSettings) {
-      stmt.run(s.key, s.value);
-    }
-    console.log("[SEED] Tetapan lalai dicipta.");
-  } else {
-    // Update existing database settings if they were on old defaults
-    const appNameRow = db.prepare("SELECT value FROM settings WHERE key='appName'").get();
-    if (appNameRow && appNameRow.value === "RosakAlert") {
-      db.prepare("UPDATE settings SET value='CAMPUSFIX.ORG' WHERE key='appName'").run();
-      db.prepare("UPDATE settings SET value='/images/logo.png' WHERE key='appLogo'").run();
-      db.prepare("UPDATE settings SET value='image' WHERE key='backgroundType'").run();
-      db.prepare("UPDATE settings SET value='/images/bg-campus.png' WHERE key='backgroundImage'").run();
-      db.prepare("UPDATE settings SET value='Tentang Campusfix.org' WHERE key='aboutTitle'").run();
-    }
-    const checkStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
-    checkStmt.run("aboutTitle", "Tentang Campusfix.org");
-    checkStmt.run("aboutContent", "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera.");
+  const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+  for (const s of defaultSettings) {
+    stmt.run(s.key, s.value);
   }
+  console.log("[SEED] Tetapan lalai dicipta.");
+} else {
+  // Update existing database settings if they were on old defaults
+  const appNameRow = db.prepare("SELECT value FROM settings WHERE key='appName'").get();
+  if (appNameRow && appNameRow.value === "RosakAlert") {
+    db.prepare("UPDATE settings SET value='CAMPUSFIX.ORG' WHERE key='appName'").run();
+    db.prepare("UPDATE settings SET value='/images/logo.png' WHERE key='appLogo'").run();
+    db.prepare("UPDATE settings SET value='image' WHERE key='backgroundType'").run();
+    db.prepare("UPDATE settings SET value='/images/bg-campus.png' WHERE key='backgroundImage'").run();
+    db.prepare("UPDATE settings SET value='Tentang Campusfix.org' WHERE key='aboutTitle'").run();
+  }
+  const checkStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+  checkStmt.run("aboutTitle", "Tentang Campusfix.org");
+  checkStmt.run("aboutContent", "Sistem aduan kerosakan kolej bertujuan memudahkan pelajar melapor kerosakan kemudahan dengan cepat. Setiap aduan disalurkan secara terus kepada unit penyelenggaraan berkenaan untuk tindakan segera.");
+}
 
 const STATUSES = ["baru", "dalam_proses", "selesai"];
 
