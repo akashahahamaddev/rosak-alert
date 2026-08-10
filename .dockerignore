@@ -1,0 +1,11 @@
+node_modules
+.git
+.github
+.claude
+*.db
+*.db-wal
+*.db-shm
+uploads/*
+!uploads/.gitkeep
+Dockerfile
+docker-compose.yml
