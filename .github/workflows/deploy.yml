@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -19,21 +21,23 @@ jobs:
       - name: Ensure Storage Directories
         run: |
           mkdir -p uploads data
+          chmod -R 775 uploads data || true
 
       - name: Build and Restart Docker Containers
         run: |
-          if command -v docker &> /dev/null && docker compose version &> /dev/null; then
-            echo "🚀 Rebuilding and deploying with 'docker compose'..."
-            docker compose down || true
-            docker compose build --no-cache
-            docker compose up -d
-          elif command -v docker-compose &> /dev/null; then
-            echo "🚀 Rebuilding and deploying with 'docker-compose'..."
-            docker-compose down || true
-            docker-compose build --no-cache
-            docker-compose up -d
-          else
-            echo "❌ Neither 'docker compose' nor 'docker-compose' was found on host."
-            exit 1
+          DOCKER_CMD="docker compose"
+          if ! command -v docker &> /dev/null || ! docker compose version &> /dev/null; then
+            if command -v docker-compose &> /dev/null; then
+              DOCKER_CMD="docker-compose"
+            else
+              echo "❌ Neither 'docker compose' nor 'docker-compose' was found on host."
+              exit 1
+            fi
           fi
+
+          echo "🚀 Rebuilding and deploying with '$DOCKER_CMD'..."
+          $DOCKER_CMD down || true
+          $DOCKER_CMD build --no-cache
+          $DOCKER_CMD up -d
           echo "✅ Container rebuilt and started successfully!"
+
