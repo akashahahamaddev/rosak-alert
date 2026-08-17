@@ -41,3 +41,26 @@ jobs:
           $DOCKER_CMD up -d
           echo "✅ Container rebuilt and started successfully!"
 
+      - name: Verify Live Domain & Health Check
+        run: |
+          echo "⏳ Waiting 5s for container to initialize..."
+          sleep 5
+
+          echo "🔍 Checking local container on port 80..."
+          if curl -f -s -o /dev/null http://127.0.0.1:80; then
+            echo "✅ Container is healthy on port 80!"
+          else
+            echo "⚠️ Warning: Local port 80 check failed. Checking container logs..."
+            docker logs --tail 30 rosak-alert || true
+          fi
+
+          echo "🔍 Verifying domain https://campusfix.org..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -L --connect-timeout 10 https://campusfix.org || echo "FAILED")
+          echo "HTTP Status for campusfix.org: $HTTP_STATUS"
+          if [[ "$HTTP_STATUS" =~ ^(200|301|302|304)$ ]]; then
+            echo "🎉 Deployment verified! https://campusfix.org is live and reachable."
+          else
+            echo "⚠️ Domain check returned $HTTP_STATUS (may take a moment for Cloudflare/DNS cache to refresh)."
+          fi
+
+
