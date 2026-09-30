@@ -44,6 +44,31 @@ function authMiddleware(req, res, next) {
   next();
 }
 
+function getStudentFromReq(req) {
+  const token = getCookie(req, "student_session");
+  if (!token) return null;
+  try {
+    const student = db.prepare(`
+      SELECT s.id, s.name, s.email, s.phone, s.matrix_no, s.created_at
+      FROM student_sessions sess
+      JOIN students s ON s.id = sess.student_id
+      WHERE sess.token = ?
+    `).get(token);
+    return student || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function studentAuthMiddleware(req, res, next) {
+  const student = getStudentFromReq(req);
+  if (!student) {
+    return res.status(401).json({ error: "Sesi pelajar tidak sah atau telah tamat. Sila log masuk semula." });
+  }
+  req.student = student;
+  next();
+}
+
 // --- Database setup -------------------------------------------------------
 const DB_PATH = process.env.DB_PATH || join(__dirname, "data.db");
 fs.mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -82,7 +107,29 @@ db.exec(`
     email         TEXT NOT NULL,
     phone         TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS students (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,
+    email         TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    phone         TEXT,
+    matrix_no     TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS student_sessions (
+    token      TEXT PRIMARY KEY,
+    student_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+  );
 `);
+
+// Safe migrations for existing databases
+try {
+  db.exec("ALTER TABLE reports ADD COLUMN student_id INTEGER REFERENCES students(id)");
+} catch (_) {}
 
 // Seed default admin if table is empty
 const adminExists = db.prepare("SELECT COUNT(*) as count FROM admins").get();
@@ -170,21 +217,28 @@ app.post("/api/reports", upload.single("photo"), (req, res) => {
   if (!building || !building.trim()) {
     return res.status(400).json({ error: "Bangunan/lokasi wajib diisi" });
   }
+
+  // Check if student is logged in
+  const student = getStudentFromReq(req);
+  const studentId = student ? student.id : null;
+  const reporterName = reporter?.trim() || (student ? `${student.name} (${student.email})` : null);
+
   const ref = genRef();
   const info = db
     .prepare(
-      `INSERT INTO reports (ref, reporter, building, floor, room, category, description, photo)
-       VALUES (@ref, @reporter, @building, @floor, @room, @category, @description, @photo)`
+      `INSERT INTO reports (ref, reporter, building, floor, room, category, description, photo, student_id)
+       VALUES (@ref, @reporter, @building, @floor, @room, @category, @description, @photo, @student_id)`
     )
     .run({
       ref,
-      reporter: reporter?.trim() || null,
+      reporter: reporterName,
       building: building.trim(),
       floor: floor?.trim() || null,
       room: room?.trim() || null,
       category: category?.trim() || null,
       description: description?.trim() || null,
       photo: req.file ? `/uploads/${req.file.filename}` : null,
+      student_id: studentId
     });
   const row = db.prepare("SELECT * FROM reports WHERE id = ?").get(info.lastInsertRowid);
   res.status(201).json(row);
@@ -230,6 +284,153 @@ app.post("/api/auth/logout", (req, res) => {
     "session_id=; Path=/; HttpOnly; SameSite=Strict; MaxAge=0"
   );
   res.json({ success: true });
+});
+
+// --- Student Account & Auth APIs -------------------------------------------
+app.post("/api/student/register", (req, res) => {
+  const { name, email, password, phone, matrix_no } = req.body || {};
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Sila masukkan nama penuh pelajar." });
+  }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return res.status(400).json({ error: "Sila masukkan alamat e-mel yang sah." });
+  }
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: "Kata laluan mestilah sekurang-kurangnya 6 aksara." });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanName = name.trim();
+  const cleanPhone = phone?.trim() || null;
+  const cleanMatrix = matrix_no?.trim() || null;
+
+  try {
+    const existing = db.prepare("SELECT id FROM students WHERE email = ?").get(cleanEmail);
+    if (existing) {
+      return res.status(400).json({ error: "Alamat e-mel ini telah didaftarkan. Sila log masuk." });
+    }
+
+    const passwordHash = hashPassword(password);
+    const info = db.prepare(`
+      INSERT INTO students (name, email, password_hash, phone, matrix_no)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(cleanName, cleanEmail, passwordHash, cleanPhone, cleanMatrix);
+    const studentId = info.lastInsertRowid;
+
+    // Link any previous reports submitted with this email/name
+    try {
+      db.prepare(`
+        UPDATE reports 
+        SET student_id = ? 
+        WHERE student_id IS NULL AND (reporter LIKE ? OR reporter LIKE ?)
+      `).run(studentId, `%${cleanEmail}%`, `%${cleanName}%`);
+    } catch (_) {}
+
+    // Create session token
+    const token = randomUUID();
+    db.prepare("INSERT INTO student_sessions (token, student_id) VALUES (?, ?)").run(token, studentId);
+
+    res.setHeader(
+      "Set-Cookie",
+      `student_session=${token}; Path=/; HttpOnly; SameSite=Lax; MaxAge=${30 * 86400}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    );
+
+    res.status(201).json({
+      success: true,
+      student: {
+        id: studentId,
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+        matrix_no: cleanMatrix
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/student/login", (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: "Sila masukkan e-mel dan kata laluan." });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const student = db.prepare("SELECT * FROM students WHERE email = ?").get(cleanEmail);
+    if (!student || !verifyPassword(password, student.password_hash)) {
+      return res.status(401).json({ error: "E-mel atau kata laluan tidak sah." });
+    }
+
+    // Create session token
+    const token = randomUUID();
+    db.prepare("INSERT INTO student_sessions (token, student_id) VALUES (?, ?)").run(token, student.id);
+
+    res.setHeader(
+      "Set-Cookie",
+      `student_session=${token}; Path=/; HttpOnly; SameSite=Lax; MaxAge=${30 * 86400}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    );
+
+    res.json({
+      success: true,
+      student: {
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        phone: student.phone,
+        matrix_no: student.matrix_no
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/student/me", (req, res) => {
+  const student = getStudentFromReq(req);
+  if (student) {
+    res.json({ authenticated: true, student });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
+
+app.post("/api/student/logout", (req, res) => {
+  const token = getCookie(req, "student_session");
+  if (token) {
+    try {
+      db.prepare("DELETE FROM student_sessions WHERE token = ?").run(token);
+    } catch (_) {}
+  }
+  res.setHeader(
+    "Set-Cookie",
+    "student_session=; Path=/; HttpOnly; SameSite=Lax; MaxAge=0"
+  );
+  res.json({ success: true });
+});
+
+app.get("/api/student/reports", studentAuthMiddleware, (req, res) => {
+  try {
+    const student = req.student;
+    const reports = db.prepare(`
+      SELECT * FROM reports 
+      WHERE student_id = ? OR (reporter LIKE ? AND ? != '')
+      ORDER BY id DESC
+    `).all(student.id, `%${student.email}%`, student.email);
+
+    res.json({
+      success: true,
+      student: {
+        id: student.id,
+        name: student.name,
+        email: student.email
+      },
+      reports
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Settings APIs ---------------------------------------------------------
@@ -318,10 +519,16 @@ app.get("/api/reports", authMiddleware, (req, res) => {
   const { status, building } = req.query;
   const clauses = [];
   const params = {};
-  if (status && STATUSES.includes(status)) { clauses.push("status = @status"); params.status = status; }
-  if (building) { clauses.push("building = @building"); params.building = building; }
+  if (status && STATUSES.includes(status)) { clauses.push("r.status = @status"); params.status = status; }
+  if (building) { clauses.push("r.building = @building"); params.building = building; }
   const where = clauses.length ? "WHERE " + clauses.join(" AND ") : "";
-  const rows = db.prepare(`SELECT * FROM reports ${where} ORDER BY created_at DESC`).all(params);
+  const rows = db.prepare(`
+    SELECT r.*, s.name as student_name, s.email as student_email, s.phone as student_phone, s.matrix_no as student_matrix
+    FROM reports r
+    LEFT JOIN students s ON s.id = r.student_id
+    ${where}
+    ORDER BY r.created_at DESC
+  `).all(params);
   res.json(rows);
 });
 

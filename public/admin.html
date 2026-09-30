@@ -721,10 +721,14 @@
         </div>
       </div>
       <div class="topbar-actions" v-if="isAuthenticated">
+        <a class="link-btn" href="/pelajar.html" target="_blank"><i class="fa-solid fa-graduation-cap"></i> Portal Pelajar</a>
         <a class="link-btn" href="/"><i class="fa-solid fa-arrow-left"></i> Borang Laporan</a>
         <button class="btn-logout" @click="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
       </div>
-      <a class="link-btn" href="/" v-else><i class="fa-solid fa-arrow-left"></i> Borang Laporan</a>
+      <div class="topbar-actions" v-else>
+        <a class="link-btn" href="/pelajar.html" target="_blank"><i class="fa-solid fa-graduation-cap"></i> Portal Pelajar</a>
+        <a class="link-btn" href="/"><i class="fa-solid fa-arrow-left"></i> Borang Laporan</a>
+      </div>
     </header>
 
     <!-- Admin dashboard container (only visible if logged in) -->
@@ -788,7 +792,17 @@
               </p>
               <p class="cat" v-if="r.category">{{ r.category }}</p>
               <p class="desc" v-if="r.description">{{ r.description }}</p>
-              <p class="meta">{{ r.reporter || 'Tanpa nama' }} · {{ r.created_at }}</p>
+              <p class="meta">
+                <template v-if="r.student_email">
+                  <i class="fa-solid fa-graduation-cap" style="color: #6ee7b7;" title="Akaun Pelajar Berdaftar"></i>
+                  <strong style="color: #a7f3d0;">{{ r.student_name || r.reporter }}</strong>
+                  <span style="opacity: 0.8; font-size: 11px;">({{ r.student_email }})</span>
+                </template>
+                <template v-else>
+                  {{ r.reporter || 'Tanpa nama' }}
+                </template>
+                · {{ r.created_at }}
+              </p>
               <div class="actions">
                 <select :value="r.status" @change="update(r, $event.target.value)">
                   <option value="baru">Baru</option>

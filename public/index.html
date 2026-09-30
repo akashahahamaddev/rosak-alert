@@ -38,6 +38,13 @@
           <button :class="['btn-lang', lang === 'ms' && 'active']" @click="setLang('ms')">MS</button>
           <button :class="['btn-lang', lang === 'en' && 'active']" @click="setLang('en')">EN</button>
         </div>
+        <!-- Student Portal Link -->
+        <a class="link-btn" href="/pelajar.html" v-if="student.id">
+          <i class="fa-solid fa-graduation-cap"></i> {{ student.name }}
+        </a>
+        <a class="link-btn" href="/pelajar.html" v-else>
+          <i class="fa-solid fa-graduation-cap"></i> {{ t('studentPortal') }}
+        </a>
         <a class="link-btn" href="#" @click.prevent="showAboutModal = true"><i class="fa-solid fa-circle-info"></i> {{ t('aboutBtn') }}</a>
         <a class="link-btn" href="/admin.html"><i class="fa-solid fa-user-lock"></i> {{ t('adminPanel') }}</a>
       </div>
@@ -54,7 +61,12 @@
           <span v-if="result.floor"> · Aras {{ result.floor }}</span>
           <span v-if="result.room"> · Bilik/Kawasan {{ result.room }}</span>
         </p>
-        <button class="btn" @click="reset">{{ t('btnReportAgain') }}</button>
+        <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
+          <a href="/pelajar.html" class="btn" style="flex: 1; margin-top: 0; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <i class="fa-solid fa-graduation-cap"></i> {{ t('viewInPortal') }}
+          </a>
+          <button class="btn btn-secondary" style="flex: 1; margin-top: 0;" @click="reset">{{ t('btnReportAgain') }}</button>
+        </div>
       </div>
 
       <!-- Main reporting flow -->
@@ -231,7 +243,9 @@
         successLoc: "Lokasi:",
         btnReportAgain: "Lapor Lagi",
         invalidFile: "Sila pilih fail imej sahaja.",
-        dropImageOnly: "Sila seret fail imej sahaja."
+        dropImageOnly: "Sila seret fail imej sahaja.",
+        studentPortal: "Portal Pelajar",
+        viewInPortal: "Semak Status di Portal Pelajar"
       },
       en: {
         adminPanel: "Admin Panel",
@@ -269,7 +283,9 @@
         successLoc: "Location:",
         btnReportAgain: "Report Again",
         invalidFile: "Please select an image file only.",
-        dropImageOnly: "Please drag an image file only."
+        dropImageOnly: "Please drag an image file only.",
+        studentPortal: "Student Portal",
+        viewInPortal: "Track in Student Portal"
       }
     };
 
@@ -290,6 +306,23 @@
         const currentSlide = ref(0);
         const carouselImages = ref(["/images/carousel1.png", "/images/carousel2.png"]);
         let carouselInterval = null;
+
+        const student = ref({});
+
+        async function checkStudentAuth() {
+          try {
+            const res = await fetch("/api/student/me");
+            if (res.ok) {
+              const data = await res.json();
+              if (data.authenticated && data.student) {
+                student.value = data.student;
+                if (!form.reporter || form.reporter.startsWith("Pelajar (")) {
+                  form.reporter = data.student.name;
+                }
+              }
+            }
+          } catch (_) {}
+        }
 
         // Branding and dynamic settings
         const settings = ref({
@@ -510,6 +543,7 @@
 
           loadProfile();
           fetchSettings();
+          checkStudentAuth();
           window.addEventListener("paste", onPaste);
 
           // Autoplay carousel slides
@@ -545,7 +579,8 @@
           reset,
           showAboutModal,
           currentSlide,
-          carouselImages
+          carouselImages,
+          student
         };
       },
     }).mount("#app");
