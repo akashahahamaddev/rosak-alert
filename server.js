@@ -151,7 +151,13 @@ const upload = multer({
 const app = express();
 app.set("trust proxy", true);
 app.use(express.json());
-app.use(express.static(join(__dirname, "public")));
+app.use(express.static(join(__dirname, "public"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html") || filePath.endsWith(".css") || filePath.endsWith(".js")) {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    }
+  }
+}));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 const genRef = () =>
