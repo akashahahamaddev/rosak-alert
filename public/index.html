@@ -55,17 +55,49 @@
       <div class="card success" v-if="submitted">
         <h2>{{ t('successTitle') }}</h2>
         <p>{{ t('successRef') }}</p>
-        <p class="ref">{{ result.ref }}</p>
+        
+        <div class="ref-copy-wrapper" style="display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 0 16px;">
+          <p class="ref" style="margin: 0;">{{ result.ref }}</p>
+          <button type="button" @click="copyRef" :title="copied ? t('copied') : t('copyRef')" style="background: rgba(255,255,255,0.08); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+            <i :class="copied ? 'fa-solid fa-check' : 'fa-regular fa-copy'" :style="{ color: copied ? '#34d399' : 'inherit' }"></i>
+            <span>{{ copied ? t('copied') : t('copyRef') }}</span>
+          </button>
+        </div>
+
         <p class="muted">
           {{ t('successLoc') }} Blok {{ result.building }}
           <span v-if="result.floor"> · Aras {{ result.floor }}</span>
           <span v-if="result.room"> · Bilik/Kawasan {{ result.room }}</span>
         </p>
-        <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
-          <a href="/pelajar.html" class="btn" style="flex: 1; margin-top: 0; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+
+        <!-- WhatsApp Receipt Box -->
+        <div class="receipt-action-box" style="margin: 20px 0; padding: 16px; background: rgba(37, 211, 102, 0.08); border: 1px solid rgba(37, 211, 102, 0.28); border-radius: 14px; text-align: center;">
+          <p style="margin: 0 0 10px; font-size: 13.5px; color: #a7f3d0; font-weight: 500;">
+            <i class="fa-brands fa-whatsapp" style="font-size: 16px; color: #25d366;"></i> {{ t('saveToWhatsAppTitle') }}
+          </p>
+          <a :href="getWhatsAppReceiptUrl()" target="_blank" class="btn" style="background: #25d366; color: #062b16; font-weight: 700; margin: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);">
+            <i class="fa-brands fa-whatsapp" style="font-size: 17px;"></i> {{ t('saveToWhatsAppBtn') }}
+          </a>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+          <a :href="'/pelajar.html?ref=' + encodeURIComponent(result.ref)" class="btn" style="flex: 1; margin-top: 0; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
             <i class="fa-solid fa-graduation-cap"></i> {{ t('viewInPortal') }}
           </a>
           <button class="btn btn-secondary" style="flex: 1; margin-top: 0;" @click="reset">{{ t('btnReportAgain') }}</button>
+        </div>
+
+        <!-- Recent device reports list if any -->
+        <div v-if="deviceRecentReports.length > 1" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); text-align: left;">
+          <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">
+            <i class="fa-solid fa-clock-rotate-left"></i> {{ t('recentDeviceReports') }}
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <a v-for="r in deviceRecentReports" :key="r.ref" :href="'/pelajar.html?ref=' + encodeURIComponent(r.ref)" style="display: flex; justify-content: space-between; font-size: 12.5px; color: #79c0ff; text-decoration: none; padding: 7px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--line);">
+              <span><strong>{{ r.ref }}</strong> · Blok {{ r.building }}</span>
+              <span style="color: var(--muted); font-size: 11.5px;">{{ r.date }} &rarr;</span>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -150,6 +182,18 @@
                 <input v-model="form.reporter" :placeholder="t('reporterPlaceholder')" />
               </label>
 
+              <div class="row">
+                <label><i class="fa-brands fa-whatsapp" style="color: #25d366;"></i> {{ t('whatsappLabel') }}
+                  <input v-model="form.phone" type="tel" :placeholder="t('whatsappPlaceholder')" />
+                </label>
+                <label><i class="fa-solid fa-envelope" style="color: #60a5fa;"></i> {{ t('emailLabel') }}
+                  <input v-model="form.email" type="email" :placeholder="t('emailPlaceholder')" />
+                </label>
+              </div>
+              <p style="font-size: 11.5px; color: var(--muted); margin-top: -6px; margin-bottom: 14px; line-height: 1.4;">
+                <i class="fa-solid fa-circle-info"></i> {{ t('contactHint') }}
+              </p>
+
               <label>{{ t('buildingLabel') }} <span class="req">*</span>
                 <input v-model="form.building" required :placeholder="t('buildingPlaceholder')" />
               </label>
@@ -220,6 +264,16 @@
         step2Subtitle: "Langkah 2: Sila lengkapkan maklumat di bawah.",
         reporterLabel: "Nama pelajar (pilihan)",
         reporterPlaceholder: "cth: Ali bin Abu",
+        whatsappLabel: "No. WhatsApp (Pilihan)",
+        whatsappPlaceholder: "cth: 0123456789",
+        emailLabel: "E-mel (Pilihan)",
+        emailPlaceholder: "cth: pengadu@gmail.com",
+        contactHint: "Masukkan WhatsApp atau E-mel jika ingin menerima salinan slip rasmi & makluman status.",
+        saveToWhatsAppTitle: "Simpan slip rasmi aduan ke WhatsApp anda:",
+        saveToWhatsAppBtn: "Hantar Slip ke WhatsApp Saya",
+        copyRef: "Salin",
+        copied: "Disalin!",
+        recentDeviceReports: "Aduan terkini dari peranti ini:",
         buildingLabel: "Bangunan / Blok",
         buildingPlaceholder: "cth: Blok A, Dewan Utama",
         floorLabel: "Tingkat / Aras",
@@ -260,6 +314,16 @@
         step2Subtitle: "Step 2: Please complete the information below.",
         reporterLabel: "Student name (optional)",
         reporterPlaceholder: "e.g., John Doe",
+        whatsappLabel: "WhatsApp No. (Optional)",
+        whatsappPlaceholder: "e.g., 0123456789",
+        emailLabel: "Email (Optional)",
+        emailPlaceholder: "e.g., reporter@gmail.com",
+        contactHint: "Enter WhatsApp or Email to receive confirmation receipt & status updates.",
+        saveToWhatsAppTitle: "Save official report receipt to your WhatsApp:",
+        saveToWhatsAppBtn: "Send Slip to My WhatsApp",
+        copyRef: "Copy",
+        copied: "Copied!",
+        recentDeviceReports: "Recent reports from this device:",
         buildingLabel: "Building / Block",
         buildingPlaceholder: "e.g., Block A, Main Hall",
         floorLabel: "Floor / Level",
@@ -292,7 +356,7 @@
     const { createApp, reactive, ref, onMounted, onUnmounted } = Vue;
     createApp({
       setup() {
-        const blank = () => ({ reporter: "", building: "", floor: "", room: "", category: "", description: "" });
+        const blank = () => ({ reporter: "", phone: "", email: "", building: "", floor: "", room: "", category: "", description: "" });
         const form = reactive(blank());
         const file = ref(null);
         const preview = ref("");
@@ -308,6 +372,8 @@
         let carouselInterval = null;
 
         const student = ref({});
+        const copied = ref(false);
+        const deviceRecentReports = ref([]);
 
         async function checkStudentAuth() {
           try {
@@ -319,6 +385,8 @@
                 if (!form.reporter || form.reporter.startsWith("Pelajar (")) {
                   form.reporter = data.student.name;
                 }
+                if (!form.phone && data.student.phone) form.phone = data.student.phone;
+                if (!form.email && data.student.email) form.email = data.student.email;
               }
             }
           } catch (_) {}
@@ -415,6 +483,8 @@
             try {
               const profile = JSON.parse(stored);
               form.reporter = profile.reporter || "";
+              form.phone = profile.phone || "";
+              form.email = profile.email || "";
               form.building = profile.building || "";
               form.floor = profile.floor || "";
               form.room = profile.room || "";
@@ -430,6 +500,8 @@
         function saveProfile() {
           localStorage.setItem("rosakalert_profile", JSON.stringify({
             reporter: form.reporter,
+            phone: form.phone,
+            email: form.email,
             building: form.building,
             floor: form.floor,
             room: form.room
@@ -488,6 +560,57 @@
           if (fileInput.value) fileInput.value.value = "";
         }
 
+        function copyRef() {
+          if (!result.value.ref) return;
+          navigator.clipboard.writeText(result.value.ref).then(() => {
+            copied.value = true;
+            setTimeout(() => { copied.value = false; }, 2500);
+          }).catch(() => {});
+        }
+
+        function getWhatsAppReceiptUrl() {
+          const origin = window.location.origin;
+          const trackUrl = `${origin}/pelajar.html?ref=${encodeURIComponent(result.value.ref || '')}`;
+          const photoUrl = result.value.photo ? `\n📸 *Foto:* ${origin}${result.value.photo}` : '';
+          const msg = 
+`📢 *SLIP RASMI ADUAN CAMPUSFIX*
+==============================
+*No. Rujukan:* ${result.value.ref}
+*Status:* ${(result.value.status || 'baru').toUpperCase()}
+*Lokasi:* Blok ${result.value.building}${result.value.floor ? ', Aras ' + result.value.floor : ''}${result.value.room ? ', ' + result.value.room : ''}
+*Kategori:* ${result.value.category || 'Umum'}
+*Keterangan:* ${result.value.description || 'Tiada'}${photoUrl}
+
+🔍 *Pautan Semak Status Langsung:*
+${trackUrl}
+
+_Disimpan melalui CampusFix.org_`;
+
+          let phone = (form.phone || '').trim().replace(/[^\d+]/g, '');
+          if (phone) {
+            if (phone.startsWith('0')) {
+              phone = '6' + phone;
+            }
+            return `https://api.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(msg)}`;
+          }
+          return `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+        }
+
+        function saveRecentDeviceReport(rep) {
+          try {
+            const KEY = "rosakalert_device_reports";
+            const existing = JSON.parse(localStorage.getItem(KEY) || "[]");
+            const item = {
+              ref: rep.ref,
+              building: rep.building,
+              date: new Date().toLocaleDateString("ms-MY")
+            };
+            const updated = [item, ...existing.filter(x => x.ref !== rep.ref)].slice(0, 5);
+            localStorage.setItem(KEY, JSON.stringify(updated));
+            deviceRecentReports.value = updated;
+          } catch (_) {}
+        }
+
         async function submit() {
           error.value = "";
           if (!form.building.trim()) { error.value = lang.value === "en" ? "Please fill in building/location." : "Sila isi bangunan/lokasi."; return; }
@@ -502,6 +625,7 @@
             result.value = data;
             submitted.value = true;
             saveProfile();
+            saveRecentDeviceReport(data);
           } catch (err) {
             error.value = err.message;
           } finally {
@@ -511,6 +635,8 @@
 
         function reset() {
           const reporter = form.reporter;
+          const phone = form.phone;
+          const email = form.email;
           const building = form.building;
           const floor = form.floor;
           const room = form.room;
@@ -518,6 +644,8 @@
           Object.assign(form, blank());
           
           form.reporter = reporter;
+          form.phone = phone;
+          form.email = email;
           form.building = building;
           form.floor = floor;
           form.room = room;
@@ -544,6 +672,9 @@
           loadProfile();
           fetchSettings();
           checkStudentAuth();
+          try {
+            deviceRecentReports.value = JSON.parse(localStorage.getItem("rosakalert_device_reports") || "[]");
+          } catch (_) {}
           window.addEventListener("paste", onPaste);
 
           // Autoplay carousel slides
@@ -580,7 +711,11 @@
           showAboutModal,
           currentSlide,
           carouselImages,
-          student
+          student,
+          copied,
+          copyRef,
+          getWhatsAppReceiptUrl,
+          deviceRecentReports
         };
       },
     }).mount("#app");

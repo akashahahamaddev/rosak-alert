@@ -801,6 +801,16 @@
                 <template v-else>
                   {{ r.reporter || 'Tanpa nama' }}
                 </template>
+                <template v-if="r.reporter_phone || r.student_phone">
+                  · <a :href="'https://api.whatsapp.com/send?phone=' + ((r.reporter_phone || r.student_phone).replace(/[^\d+]/g, '').startsWith('0') ? '6' + (r.reporter_phone || r.student_phone).replace(/[^\d+]/g, '') : (r.reporter_phone || r.student_phone).replace(/[^\d+]/g, ''))" target="_blank" style="color: #6ee7b7; text-decoration: none;" title="WhatsApp Pengadu">
+                    <i class="fa-brands fa-whatsapp"></i> {{ r.reporter_phone || r.student_phone }}
+                  </a>
+                </template>
+                <template v-if="r.reporter_email && !r.student_email">
+                  · <a :href="'mailto:' + r.reporter_email" style="color: #93c5fd; text-decoration: none;" title="E-mel Pengadu">
+                    <i class="fa-solid fa-envelope"></i> {{ r.reporter_email }}
+                  </a>
+                </template>
                 · {{ r.created_at }}
               </p>
               <div class="actions">
@@ -824,7 +834,20 @@
                   </button>
                   
                   <div class="share-dropdown" v-if="activeShareReportId === r.id">
-                    <div class="share-title">Pilih Penerima:</div>
+                    <!-- Direct Reporter WhatsApp Option if phone is available -->
+                    <div v-if="r.reporter_phone || r.student_phone" style="padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line);">
+                      <div class="share-title" style="color: #a7f3d0;"><i class="fa-brands fa-whatsapp"></i> Maklumkan Pengadu:</div>
+                      <div class="share-recipient-row">
+                        <span class="rec-name" style="color: #fff; font-size: 12.5px;">{{ r.student_name || r.reporter || 'Pengadu' }} ({{ r.reporter_phone || r.student_phone }})</span>
+                        <div class="share-btns">
+                          <a class="share-btn wa" :href="getReporterWhatsAppLink(r)" target="_blank" title="WhatsApp Pengadu">
+                            <i class="fa-brands fa-whatsapp"></i> Update Pengadu
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="share-title">Staf Penyelenggara:</div>
                     <div class="share-recipients" v-if="recipients.length > 0">
                       <div class="share-recipient-row" v-for="rec in recipients" :key="rec.id">
                         <span class="rec-name">{{ rec.name }}</span>
@@ -1927,6 +1950,28 @@
           return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         }
 
+        function getReporterWhatsAppLink(report) {
+          const rawPhone = report.reporter_phone || report.student_phone || '';
+          let cleanPhone = rawPhone.replace(/[^\d+]/g, '');
+          if (cleanPhone.startsWith('0')) {
+            cleanPhone = '6' + cleanPhone;
+          }
+          const statusLabels = { baru: "BARU / DALAM SEMAKAN", dalam_proses: "SEDANG DIBAIKI", selesai: "SELESAI DIBAIKI" };
+          const statusDisplay = statusLabels[report.status] || (report.status || '').toUpperCase();
+          const baseUrl = window.location.origin;
+          const trackUrl = `${baseUrl}/pelajar.html?ref=${encodeURIComponent(report.ref)}`;
+
+          const msg = `Salam sejahtera ${report.student_name || report.reporter || ''},\n\n` +
+            `Berkenaan aduan kerosakan anda di CampusFix:\n` +
+            `*No. Rujukan:* ${report.ref}\n` +
+            `*Lokasi:* Blok ${report.building}${report.floor ? ', Aras ' + report.floor : ''}${report.room ? ', ' + report.room : ''}\n` +
+            `*Status Terkini:* *${statusDisplay}*\n\n` +
+            `Pihak kolej sedang menguruskan tindakan lanjut. Anda boleh menyemak status terkini bila-bila masa melalui pautan:\n${trackUrl}\n\n` +
+            `Terima kasih.`;
+
+          return `https://api.whatsapp.com/send?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(msg)}`;
+        }
+
         function printReport(r) {
           const printWindow = window.open("", "_blank", "width=800,height=600");
           const logoHtml = settings.value.appLogo 
@@ -2476,6 +2521,7 @@
           toggleShareMenu,
           getWhatsAppLink,
           getEmailLink,
+          getReporterWhatsAppLink,
           printReport,
           // DB Viewer properties
           dbOverview,

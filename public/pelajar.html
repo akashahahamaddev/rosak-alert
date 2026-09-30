@@ -547,10 +547,10 @@
 
     <!-- Main Container -->
     <main class="student-wrap">
-      <!-- Section 1: Guest / Auth View (Login & Register) -->
+      <!-- Section 1: Guest / Auth View (Login & Register & Quick Track) -->
       <div v-if="!isAuthenticated && !loadingAuth">
         <div class="auth-card">
-          <div class="auth-tabs">
+          <div class="auth-tabs" style="grid-template-columns: 1fr 1fr 1.15fr;">
             <button 
               type="button" 
               :class="['auth-tab-btn', authMode === 'login' && 'active']" 
@@ -565,13 +565,20 @@
             >
               <i class="fa-solid fa-user-plus"></i> {{ t('registerTab') }}
             </button>
+            <button 
+              type="button" 
+              :class="['auth-tab-btn', authMode === 'track' && 'active']" 
+              @click="authMode = 'track'; authError = '';"
+            >
+              <i class="fa-solid fa-magnifying-glass"></i> {{ t('trackTab') }}
+            </button>
           </div>
 
           <h2 style="margin-top: 0; font-size: 21px;">
-            {{ authMode === 'login' ? t('loginTitle') : t('registerTitle') }}
+            {{ authMode === 'login' ? t('loginTitle') : (authMode === 'register' ? t('registerTitle') : t('trackTitle')) }}
           </h2>
           <p class="muted" style="margin-bottom: 20px;">
-            {{ authMode === 'login' ? t('loginSubtitle') : t('registerSubtitle') }}
+            {{ authMode === 'login' ? t('loginSubtitle') : (authMode === 'register' ? t('registerSubtitle') : t('trackSubtitle')) }}
           </p>
 
           <!-- Login Form -->
@@ -610,7 +617,7 @@
           </form>
 
           <!-- Register Form -->
-          <form @submit.prevent="register" v-else>
+          <form @submit.prevent="register" v-else-if="authMode === 'register'">
             <label>{{ t('nameLabel') }} <span class="req">*</span>
               <input 
                 type="text" 
@@ -673,6 +680,70 @@
               {{ busy ? t('registering') : t('registerBtn') }}
             </button>
           </form>
+
+          <!-- Quick Track Form -->
+          <div v-else-if="authMode === 'track'">
+            <form @submit.prevent="lookupQuickRef(quickRefInput)">
+              <label>{{ t('refLabel') }}
+                <input 
+                  type="text" 
+                  v-model="quickRefInput" 
+                  required 
+                  :placeholder="t('refPlaceholder')"
+                  style="text-transform: uppercase; font-family: monospace; font-weight: 700; letter-spacing: 0.5px;"
+                />
+              </label>
+              <p class="error" v-if="quickRefError" style="margin-top: 6px;">{{ quickRefError }}</p>
+              <button class="btn" :disabled="quickRefBusy" style="margin-top: 14px;">
+                <i class="fa-solid fa-magnifying-glass" v-if="!quickRefBusy"></i>
+                {{ quickRefBusy ? t('checkingRef') : t('trackBtn') }}
+              </button>
+            </form>
+
+            <!-- Quick Tracked Report Card -->
+            <div v-if="quickTrackedReport" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); animation: fadeIn 0.3s ease;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <span class="report-ref-badge">{{ quickTrackedReport.ref }}</span>
+                <span :class="['status-badge-lg', quickTrackedReport.status]">{{ formatStatus(quickTrackedReport.status) }}</span>
+              </div>
+
+              <!-- Visual Stepper -->
+              <div class="status-stepper" style="margin-bottom: 16px;">
+                <div :class="['step-item', isStepActive(quickTrackedReport.status, 1) && 'active']">
+                  <span class="step-bullet"><i class="fa-solid fa-check" v-if="quickTrackedReport.status !== 'baru'"></i><span v-else>1</span></span>
+                  <span>{{ t('stepSubmitted') }}</span>
+                </div>
+                <div :class="['step-divider', (quickTrackedReport.status === 'dalam_proses' || quickTrackedReport.status === 'selesai') && 'filled']"></div>
+                <div :class="['step-item', isStepActive(quickTrackedReport.status, 2) && 'active']">
+                  <span class="step-bullet"><i class="fa-solid fa-check" v-if="quickTrackedReport.status === 'selesai'"></i><span v-else>2</span></span>
+                  <span>{{ t('stepInProgress') }}</span>
+                </div>
+                <div :class="['step-divider', quickTrackedReport.status === 'selesai' && 'filled']"></div>
+                <div :class="['step-item', isStepActive(quickTrackedReport.status, 3) && 'active']">
+                  <span class="step-bullet">3</span>
+                  <span>{{ t('stepResolved') }}</span>
+                </div>
+              </div>
+
+              <p style="font-weight: 600; color: #fff; margin: 0 0 6px;">
+                <i class="fa-solid fa-location-dot" style="color: var(--accent);"></i> Blok {{ quickTrackedReport.building }}
+                <span v-if="quickTrackedReport.floor"> · Aras {{ quickTrackedReport.floor }}</span>
+                <span v-if="quickTrackedReport.room"> · Bilik {{ quickTrackedReport.room }}</span>
+              </p>
+              <p v-if="quickTrackedReport.category" style="color: #79c0ff; font-size: 13px; margin: 0 0 8px;">
+                <i class="fa-solid fa-tag"></i> {{ quickTrackedReport.category }}
+              </p>
+              <p v-if="quickTrackedReport.description" style="font-size: 13.5px; color: var(--text); line-height: 1.5; margin: 0 0 12px;">
+                {{ quickTrackedReport.description }}
+              </p>
+              <div v-if="quickTrackedReport.photo" style="margin-top: 10px;">
+                <img :src="quickTrackedReport.photo" style="max-width: 100%; max-height: 200px; border-radius: 10px; cursor: pointer; object-fit: cover;" @click="openLightbox(quickTrackedReport.photo)" alt="Foto kerosakan" />
+              </div>
+              <p style="font-size: 11.5px; color: var(--muted); margin-top: 12px; margin-bottom: 0;">
+                <i class="fa-regular fa-clock"></i> {{ t('created') }}: {{ quickTrackedReport.created_at }}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -903,7 +974,14 @@
         noReportsDesc: "Anda belum menghantar sebarang laporan kerosakan.",
         noReportsFilter: "Tiada laporan yang sepadan dengan tapisan anda.",
         createFirstReportBtn: "Laporkan Kerosakan Pertama Anda",
-        closeBtn: "Tutup"
+        closeBtn: "Tutup",
+        trackTab: "Semak Rujukan",
+        trackTitle: "Semak Status Aduan",
+        trackSubtitle: "Masukkan nombor rujukan aduan (cth: RK-20260930-XXXX) untuk semak status terkini secara pantas tanpa perlu log masuk.",
+        refLabel: "Nombor Rujukan",
+        refPlaceholder: "cth: RK-20260930-XXXX",
+        trackBtn: "Semak Status",
+        checkingRef: "Menyemak..."
       },
       en: {
         portalBadge: "STUDENT PORTAL",
@@ -944,7 +1022,14 @@
         noReportsDesc: "You haven't submitted any damage reports yet.",
         noReportsFilter: "No reports matched your search/filter.",
         createFirstReportBtn: "Submit Your First Report",
-        closeBtn: "Close"
+        closeBtn: "Close",
+        trackTab: "Track Ref",
+        trackTitle: "Track Report Status",
+        trackSubtitle: "Enter your reference number (e.g. RK-20260930-XXXX) to track current progress without signing in.",
+        refLabel: "Reference Number",
+        refPlaceholder: "e.g., RK-20260930-XXXX",
+        trackBtn: "Check Status",
+        checkingRef: "Checking..."
       }
     };
 
@@ -968,13 +1053,36 @@
         const student = ref({});
         const reports = ref([]);
 
-        const authMode = ref("login"); // 'login' or 'register'
+        const authMode = ref("login"); // 'login', 'register', or 'track'
         const showPassword = ref(false);
         const busy = ref(false);
         const authError = ref("");
 
         const loginForm = reactive({ email: "", password: "" });
         const regForm = reactive({ name: "", email: "", password: "", phone: "", matrix_no: "" });
+
+        const quickRefInput = ref("");
+        const quickRefBusy = ref(false);
+        const quickRefError = ref("");
+        const quickTrackedReport = ref(null);
+
+        async function lookupQuickRef(rawRef) {
+          const clean = (rawRef || "").trim();
+          if (!clean) return;
+          quickRefBusy.value = true;
+          quickRefError.value = "";
+          try {
+            const res = await fetch(`/api/reports/track/${encodeURIComponent(clean)}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Aduan tidak dijumpai");
+            quickTrackedReport.value = data.report;
+          } catch (err) {
+            quickTrackedReport.value = null;
+            quickRefError.value = err.message;
+          } finally {
+            quickRefBusy.value = false;
+          }
+        }
 
         const statusFilter = ref("");
         const searchQuery = ref("");
@@ -1134,6 +1242,14 @@
         onMounted(async () => {
           await fetchSettings();
           await checkStudentAuth();
+
+          const urlParams = new URLSearchParams(window.location.search);
+          const queryRef = urlParams.get("ref");
+          if (queryRef) {
+            quickRefInput.value = queryRef.toUpperCase();
+            authMode.value = "track";
+            await lookupQuickRef(queryRef);
+          }
         });
 
         return {
@@ -1163,7 +1279,12 @@
           getStatusIcon,
           isStepActive,
           copyRef,
-          openLightbox
+          openLightbox,
+          quickRefInput,
+          quickRefBusy,
+          quickRefError,
+          quickTrackedReport,
+          lookupQuickRef
         };
       }
     }).mount("#app");

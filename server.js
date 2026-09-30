@@ -86,6 +86,9 @@ db.exec(`
     description  TEXT,
     photo        TEXT,
     status       TEXT NOT NULL DEFAULT 'baru',
+    student_id   INTEGER,
+    reporter_phone TEXT,
+    reporter_email TEXT,
     created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     updated_at   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
@@ -129,6 +132,12 @@ db.exec(`
 // Safe migrations for existing databases
 try {
   db.exec("ALTER TABLE reports ADD COLUMN student_id INTEGER REFERENCES students(id)");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE reports ADD COLUMN reporter_phone TEXT");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE reports ADD COLUMN reporter_email TEXT");
 } catch (_) {}
 
 // Seed default admin if table is empty
@@ -211,9 +220,9 @@ const genRef = () =>
   "RK-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" +
   randomUUID().slice(0, 4).toUpperCase();
 
-// Create a report (student submits photo + location)
+// Create a report (student/guest submits photo + location)
 app.post("/api/reports", upload.single("photo"), (req, res) => {
-  const { reporter, building, floor, room, category, description } = req.body;
+  const { reporter, building, floor, room, category, description, phone, email } = req.body;
   if (!building || !building.trim()) {
     return res.status(400).json({ error: "Bangunan/lokasi wajib diisi" });
   }
@@ -222,12 +231,14 @@ app.post("/api/reports", upload.single("photo"), (req, res) => {
   const student = getStudentFromReq(req);
   const studentId = student ? student.id : null;
   const reporterName = reporter?.trim() || (student ? `${student.name} (${student.email})` : null);
+  const reporterPhone = phone?.trim() || (student ? student.phone : null);
+  const reporterEmail = email?.trim() || (student ? student.email : null);
 
   const ref = genRef();
   const info = db
     .prepare(
-      `INSERT INTO reports (ref, reporter, building, floor, room, category, description, photo, student_id)
-       VALUES (@ref, @reporter, @building, @floor, @room, @category, @description, @photo, @student_id)`
+      `INSERT INTO reports (ref, reporter, building, floor, room, category, description, photo, student_id, reporter_phone, reporter_email)
+       VALUES (@ref, @reporter, @building, @floor, @room, @category, @description, @photo, @student_id, @reporter_phone, @reporter_email)`
     )
     .run({
       ref,
@@ -238,10 +249,33 @@ app.post("/api/reports", upload.single("photo"), (req, res) => {
       category: category?.trim() || null,
       description: description?.trim() || null,
       photo: req.file ? `/uploads/${req.file.filename}` : null,
-      student_id: studentId
+      student_id: studentId,
+      reporter_phone: reporterPhone,
+      reporter_email: reporterEmail
     });
   const row = db.prepare("SELECT * FROM reports WHERE id = ?").get(info.lastInsertRowid);
   res.status(201).json(row);
+});
+
+// Quick tracking by reference code (public)
+app.get("/api/reports/track/:ref", (req, res) => {
+  try {
+    const rawRef = (req.params.ref || "").trim().toUpperCase();
+    if (!rawRef) return res.status(400).json({ error: "No. rujukan diperlukan." });
+
+    const row = db.prepare(`
+      SELECT ref, building, floor, room, category, description, photo, status, created_at, updated_at
+      FROM reports
+      WHERE UPPER(ref) = ?
+    `).get(rawRef);
+
+    if (!row) {
+      return res.status(404).json({ error: "Laporan dengan nombor rujukan ini tidak dijumpai." });
+    }
+    res.json({ success: true, report: row });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Auth APIs -------------------------------------------------------------
