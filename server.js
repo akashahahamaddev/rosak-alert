@@ -399,6 +399,233 @@ app.delete("/api/recipients/:id", authMiddleware, (req, res) => {
   }
 });
 
+// --- Database Viewer (DB Client Web) APIs ----------------------------------
+app.get("/api/db/overview", authMiddleware, (_req, res) => {
+  try {
+    const versionRow = db.prepare("SELECT sqlite_version() as v").get();
+    const tables = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    ).all();
+
+    const tableStats = tables.map((t) => {
+      const countRow = db.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`).get();
+      const cols = db.prepare(`PRAGMA table_info("${t.name}")`).all();
+      return {
+        name: t.name,
+        rowCount: countRow ? countRow.count : 0,
+        columnCount: cols.length,
+        columns: cols.map((c) => ({
+          cid: c.cid,
+          name: c.name,
+          type: c.type || "ANY",
+          notnull: Boolean(c.notnull),
+          dflt_value: c.dflt_value,
+          pk: Boolean(c.pk)
+        }))
+      };
+    });
+
+    let fileSize = 0;
+    try {
+      const stats = fs.statSync(DB_PATH);
+      fileSize = stats.size;
+    } catch (_) {}
+
+    const journalRow = db.prepare("PRAGMA journal_mode").get();
+
+    res.json({
+      success: true,
+      version: versionRow ? versionRow.v : "Unknown",
+      dbPath: DB_PATH,
+      fileSize,
+      journalMode: journalRow ? journalRow.journal_mode : "UNKNOWN",
+      tables: tableStats
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/db/table/:name", authMiddleware, (req, res) => {
+  try {
+    const tableName = req.params.name;
+    const validTable = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+      .get(tableName);
+    if (!validTable) {
+      return res.status(404).json({ error: `Jadual '${tableName}' tidak dijumpai` });
+    }
+
+    const schema = db.prepare(`PRAGMA table_info("${validTable.name}")`).all();
+    const indexes = db.prepare(`PRAGMA index_list("${validTable.name}")`).all();
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 25));
+    const offset = (page - 1) * limit;
+
+    const availableColumns = schema.map((c) => c.name);
+    let sortCol = req.query.sort;
+    if (!sortCol || !availableColumns.includes(sortCol)) {
+      sortCol = availableColumns.includes("id") ? "id" : availableColumns[0] || null;
+    }
+
+    const sortOrder = String(req.query.order || "DESC").toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+    const search = (req.query.search || "").trim();
+    let whereClause = "";
+    const params = [];
+
+    if (search) {
+      const textCols = schema.filter((c) => {
+        const type = (c.type || "").toUpperCase();
+        return (
+          type.includes("CHAR") ||
+          type.includes("TEXT") ||
+          type.includes("CLOB") ||
+          type === "" ||
+          type.includes("ANY")
+        );
+      });
+      const searchableCols = textCols.length > 0 ? textCols : schema;
+      const conditions = searchableCols.map((c) => `CAST("${c.name}" AS TEXT) LIKE ?`);
+      whereClause = `WHERE (${conditions.join(" OR ")})`;
+      searchableCols.forEach(() => params.push(`%${search}%`));
+    }
+
+    const countQuery = `SELECT COUNT(*) as count FROM "${validTable.name}" ${whereClause}`;
+    const totalRows = db.prepare(countQuery).get(...params).count;
+
+    const orderClause = sortCol ? `ORDER BY "${sortCol}" ${sortOrder}` : "";
+    const dataQuery = `SELECT * FROM "${validTable.name}" ${whereClause} ${orderClause} LIMIT ? OFFSET ?`;
+    const rows = db.prepare(dataQuery).all(...params, limit, offset);
+
+    res.json({
+      success: true,
+      table: validTable.name,
+      schema,
+      indexes,
+      totalRows,
+      page,
+      limit,
+      totalPages: Math.ceil(totalRows / limit) || 1,
+      rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/db/query", authMiddleware, (req, res) => {
+  const { sql } = req.body || {};
+  if (!sql || typeof sql !== "string" || !sql.trim()) {
+    return res.status(400).json({ error: "Sila masukkan arahan SQL yang sah." });
+  }
+
+  const query = sql.trim();
+  const startTime = performance.now();
+
+  try {
+    const isReader = /^\s*(SELECT|PRAGMA|EXPLAIN|WITH)\b/i.test(query);
+
+    if (isReader) {
+      const stmt = db.prepare(query);
+      const rows = stmt.all();
+      const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
+      const columns =
+        rows.length > 0
+          ? Object.keys(rows[0])
+          : typeof stmt.columns === "function"
+          ? stmt.columns().map((c) => c.name)
+          : [];
+
+      return res.json({
+        success: true,
+        type: "select",
+        columns,
+        rows,
+        rowCount: rows.length,
+        durationMs
+      });
+    } else {
+      let changes = 0;
+      let lastInsertRowid = null;
+
+      try {
+        const info = db.prepare(query).run();
+        changes = info.changes;
+        lastInsertRowid = info.lastInsertRowid;
+      } catch (runErr) {
+        db.exec(query);
+      }
+
+      const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
+      return res.json({
+        success: true,
+        type: "mutation",
+        changes,
+        lastInsertRowid,
+        durationMs
+      });
+    }
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+app.get("/api/db/export/:table", authMiddleware, (req, res) => {
+  try {
+    const tableName = req.params.table;
+    const validTable = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+      .get(tableName);
+
+    if (!validTable) {
+      return res.status(404).json({ error: `Jadual '${tableName}' tidak dijumpai` });
+    }
+
+    const rows = db.prepare(`SELECT * FROM "${validTable.name}"`).all();
+    const format = (req.query.format || "json").toLowerCase();
+
+    if (format === "csv") {
+      if (rows.length === 0) {
+        const schema = db.prepare(`PRAGMA table_info("${validTable.name}")`).all();
+        const headers = schema.map((s) => s.name).join(",");
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="${validTable.name}.csv"`);
+        return res.send(headers + "\n");
+      }
+
+      const headers = Object.keys(rows[0]);
+      const csvLines = [headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(",")];
+
+      for (const row of rows) {
+        const line = headers
+          .map((h) => {
+            const val = row[h];
+            if (val === null || val === undefined) return "";
+            const strVal = typeof val === "object" ? JSON.stringify(val) : String(val);
+            return `"${strVal.replace(/"/g, '""')}"`;
+          })
+          .join(",");
+        csvLines.push(line);
+      }
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${validTable.name}.csv"`);
+      return res.send(csvLines.join("\n"));
+    }
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="${validTable.name}.json"`);
+    res.send(JSON.stringify(rows, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Multer / general error handler
 app.use((err, _req, res, _next) => {
   res.status(400).json({ error: err.message || "Ralat tidak dijangka" });

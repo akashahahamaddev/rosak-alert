@@ -29,12 +29,13 @@
     </header>
 
     <!-- Admin dashboard container (only visible if logged in) -->
-    <main class="wrap wide" v-if="isAuthenticated">
+    <main :class="['wrap wide', activeTab === 'db' && 'wrap-db-viewer']" v-if="isAuthenticated">
       <!-- Tabs Selector -->
       <div class="tabs">
         <button :class="['tab-btn', activeTab === 'reports' && 'active']" @click="activeTab = 'reports'"><i class="fa-solid fa-clipboard-list"></i> Laporan</button>
         <button :class="['tab-btn', activeTab === 'recipients' && 'active']" @click="activeTab = 'recipients'"><i class="fa-solid fa-users"></i> Penerima Notifikasi</button>
         <button :class="['tab-btn', activeTab === 'settings' && 'active']" @click="activeTab = 'settings'"><i class="fa-solid fa-sliders"></i> Tetapan Sistem</button>
+        <button :class="['tab-btn', activeTab === 'db' && 'active']" @click="switchToDbTab"><i class="fa-solid fa-database"></i> DB Viewer</button>
       </div>
 
       <!-- Tab 1: Reports Management -->
@@ -265,6 +266,532 @@
         </section>
       </div>
 
+      <!-- Tab 4: DB Viewer (Database Client Web) -->
+      <div v-else-if="activeTab === 'db'" class="db-viewer-container">
+        <!-- Top Info & Action Card -->
+        <section class="card db-header-card">
+          <div class="db-meta-grid">
+            <div class="db-meta-chip" title="Fail Pangkalan Data">
+              <i class="fa-solid fa-hard-drive"></i>
+              <span class="chip-label">DB:</span>
+              <span class="chip-value">{{ dbOverview.dbPath ? dbOverview.dbPath.split('/').pop() : 'data.db' }}</span>
+            </div>
+            <div class="db-meta-chip" title="Saiz Fail Disk">
+              <i class="fa-solid fa-weight-hanging"></i>
+              <span class="chip-label">Saiz:</span>
+              <span class="chip-value">{{ formatBytes(dbOverview.fileSize) }}</span>
+            </div>
+            <div class="db-meta-chip" title="Versi Enjin SQLite">
+              <i class="fa-solid fa-cube"></i>
+              <span class="chip-label">SQLite:</span>
+              <span class="chip-value">v{{ dbOverview.version || '3.x' }}</span>
+            </div>
+            <div class="db-meta-chip" title="Mod Jurnal SQLite">
+              <i class="fa-solid fa-bolt"></i>
+              <span class="chip-label">Jurnal:</span>
+              <span class="chip-value">{{ (dbOverview.journalMode || 'wal').toUpperCase() }}</span>
+            </div>
+            <div class="db-meta-chip" title="Jumlah Jadual">
+              <i class="fa-solid fa-table-cells"></i>
+              <span class="chip-label">Jadual:</span>
+              <span class="chip-value">{{ dbOverview.tables ? dbOverview.tables.length : 0 }}</span>
+            </div>
+          </div>
+
+          <div class="db-top-actions">
+            <!-- Mode Switcher -->
+            <div class="db-mode-nav">
+              <button 
+                type="button" 
+                :class="['db-mode-btn', dbSubMode === 'browser' && 'active']" 
+                @click="dbSubMode = 'browser'"
+              >
+                <i class="fa-solid fa-table"></i> Pelayar Jadual
+              </button>
+              <button 
+                type="button" 
+                :class="['db-mode-btn', dbSubMode === 'sql' && 'active']" 
+                @click="dbSubMode = 'sql'"
+              >
+                <i class="fa-solid fa-terminal"></i> Konsol SQL
+              </button>
+            </div>
+
+            <button type="button" class="btn-db-action primary" @click="openCreateTableModal">
+              <i class="fa-solid fa-plus"></i> Cipta Jadual
+            </button>
+          </div>
+        </section>
+
+        <!-- Submode 1: Table Browser -->
+        <div v-if="dbSubMode === 'browser'" class="db-body-layout">
+          <!-- Sidebar: List of Tables -->
+          <aside class="card db-sidebar-card">
+            <div class="db-sidebar-title-row">
+              <h3><i class="fa-solid fa-table-list"></i> Senarai Jadual</h3>
+              <span class="db-row-badge">{{ filteredDbTables.length }}</span>
+            </div>
+
+            <div class="db-table-filter-box">
+              <input 
+                type="text" 
+                v-model="dbTableFilter" 
+                placeholder="Tapis jadual..." 
+              />
+            </div>
+
+            <div class="db-tables-list">
+              <button 
+                type="button" 
+                v-for="tbl in filteredDbTables" 
+                :key="tbl.name"
+                :class="['db-table-item', dbSelectedTable === tbl.name && 'active']"
+                @click="selectTable(tbl.name)"
+              >
+                <div class="db-table-name-group">
+                  <i class="fa-solid fa-table"></i>
+                  <span>{{ tbl.name }}</span>
+                </div>
+                <span class="db-row-badge">{{ tbl.rowCount }}</span>
+              </button>
+
+              <p v-if="filteredDbTables.length === 0" class="muted" style="text-align: center; padding: 12px; font-size: 13px;">
+                Tiada jadual sepadan.
+              </p>
+            </div>
+          </aside>
+
+          <!-- Main Panel: Table Data & Structure -->
+          <section class="card db-main-card">
+            <div class="db-main-header">
+              <div class="db-title-group">
+                <h2><i class="fa-solid fa-table"></i> {{ dbSelectedTable || 'Pilih Jadual' }}</h2>
+                <span class="db-stat-pill" v-if="dbSelectedTable">
+                  {{ dbTableTotalRows }} rekod
+                </span>
+                <span class="db-stat-pill" v-if="dbTableSchema.length">
+                  {{ dbTableSchema.length }} kolum
+                </span>
+              </div>
+
+              <div class="db-actions-toolbar" v-if="dbSelectedTable">
+                <button type="button" class="btn-db-action" @click="loadTableData" title="Segar Semula Data">
+                  <i class="fa-solid fa-rotate" :class="{ 'fa-spin': dbLoading }"></i> Segar
+                </button>
+                <button 
+                  type="button" 
+                  :class="['btn-db-action', showSchemaDrawer && 'active']" 
+                  @click="showSchemaDrawer = !showSchemaDrawer"
+                  title="Papar/Sembunyi Struktur Skema"
+                >
+                  <i class="fa-solid fa-diagram-project"></i> Skema
+                </button>
+                <button type="button" class="btn-db-action" @click="exportTable('csv')" title="Muat Turun CSV">
+                  <i class="fa-solid fa-file-csv"></i> CSV
+                </button>
+                <button type="button" class="btn-db-action" @click="exportTable('json')" title="Muat Turun JSON">
+                  <i class="fa-solid fa-file-code"></i> JSON
+                </button>
+              </div>
+            </div>
+
+            <!-- Schema Details Box (if toggled) -->
+            <div class="db-schema-box" v-if="showSchemaDrawer && dbTableSchema.length">
+              <h3><i class="fa-solid fa-layer-group"></i> Struktur Skema: {{ dbSelectedTable }}</h3>
+              <div style="overflow-x: auto;">
+                <table class="db-schema-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Nama Kolum</th>
+                      <th>Jenis Data</th>
+                      <th>Kunci Utama</th>
+                      <th>Wajib (Not Null)</th>
+                      <th>Nilai Lalai</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="col in dbTableSchema" :key="col.cid">
+                      <td style="color: var(--muted); font-size: 11px;">{{ col.cid }}</td>
+                      <td class="col-name">{{ col.name }}</td>
+                      <td class="col-type">{{ col.type || 'TEXT' }}</td>
+                      <td>
+                        <span class="pill-pk" v-if="col.pk">PK</span>
+                        <span class="muted" v-else>-</span>
+                      </td>
+                      <td>
+                        <span class="pill-req" v-if="col.notnull">Wajib</span>
+                        <span class="muted" v-else>Pilihan</span>
+                      </td>
+                      <td style="font-family: monospace; font-size: 12px; color: var(--muted);">
+                        {{ col.dflt_value !== null ? col.dflt_value : 'NULL' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Search bar within Table -->
+            <div class="db-search-bar" v-if="dbSelectedTable">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input 
+                type="text" 
+                v-model="dbTableSearch" 
+                @input="debounceTableSearch"
+                placeholder="Cari dalam rekod jadual ini..." 
+              />
+              <button 
+                type="button" 
+                class="btn-clear-search" 
+                v-if="dbTableSearch" 
+                @click="dbTableSearch = ''; loadTableData()"
+              >
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <!-- Table Data View -->
+            <div class="db-table-wrapper" v-if="dbSelectedTable">
+              <table class="db-grid" v-if="dbTableRows.length > 0">
+                <thead>
+                  <tr>
+                    <th style="width: 44px; text-align: center; cursor: default;">#</th>
+                    <th 
+                      v-for="col in dbTableSchema" 
+                      :key="col.name"
+                      @click="toggleSort(col.name)"
+                      :title="'Susun mengikut ' + col.name"
+                    >
+                      <div class="th-content">
+                        <span>{{ col.name }}</span>
+                        <span class="th-type">{{ col.type }}</span>
+                        <i 
+                          v-if="dbSortCol === col.name" 
+                          :class="['fa-solid th-sort-icon', dbSortOrder === 'ASC' ? 'fa-arrow-up' : 'fa-arrow-down']"
+                        ></i>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rIdx) in dbTableRows" :key="row.id || rIdx">
+                    <td style="color: var(--muted); text-align: center; font-size: 12px;">
+                      {{ (dbPage - 1) * dbLimit + rIdx + 1 }}
+                    </td>
+                    <td v-for="col in dbTableSchema" :key="col.name">
+                      <!-- Null Value -->
+                      <span class="db-cell-null" v-if="row[col.name] === null || row[col.name] === undefined">
+                        null
+                      </span>
+
+                      <!-- Password Hash masking -->
+                      <div class="db-cell-hash" v-else-if="col.name === 'password_hash'">
+                        <span>{{ revealedPasswords[row.id] ? row[col.name] : '••••••••••••••••' }}</span>
+                        <button 
+                          type="button" 
+                          class="db-btn-reveal" 
+                          @click="revealedPasswords[row.id] = !revealedPasswords[row.id]"
+                          :title="revealedPasswords[row.id] ? 'Sembunyi' : 'Papar Hash'"
+                        >
+                          <i :class="['fa-solid', revealedPasswords[row.id] ? 'fa-eye-slash' : 'fa-eye']"></i>
+                        </button>
+                      </div>
+
+                      <!-- Photo / Image link -->
+                      <a 
+                        v-else-if="col.name === 'photo' && row[col.name]" 
+                        :href="row[col.name]" 
+                        target="_blank" 
+                        class="db-cell-img-link"
+                      >
+                        <i class="fa-solid fa-image"></i> Papar Fail
+                      </a>
+
+                      <!-- Status Badge -->
+                      <span 
+                        v-else-if="col.name === 'status'" 
+                        :class="['status-badge', row[col.name]]"
+                      >
+                        {{ row[col.name] }}
+                      </span>
+
+                      <!-- General String / Number / Monospace -->
+                      <span 
+                        v-else 
+                        :class="['db-cell-mono', (col.pk || col.name === 'ref' || col.name.includes('_at')) && 'db-cell-pk-col']"
+                        :title="String(row[col.name])"
+                      >
+                        {{ String(row[col.name]) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p v-else class="muted" style="text-align: center; padding: 36px;">
+                <i class="fa-solid fa-folder-open" style="font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.5;"></i>
+                {{ dbLoading ? 'Memuatkan rekod...' : (dbTableSearch ? 'Tiada rekod sepadan dengan carian.' : 'Jadual ini kosong.') }}
+              </p>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="db-pagination-bar" v-if="dbSelectedTable && dbTableTotalRows > 0">
+              <span class="db-pagination-info">
+                Menunjukkan {{ (dbPage - 1) * dbLimit + 1 }} - {{ Math.min(dbPage * dbLimit, dbTableTotalRows) }} daripada {{ dbTableTotalRows }} rekod
+              </span>
+
+              <div class="db-pagination-controls">
+                <select class="db-page-size-select" v-model="dbLimit" @change="dbPage = 1; loadTableData()">
+                  <option :value="10">10 setiap halaman</option>
+                  <option :value="25">25 setiap halaman</option>
+                  <option :value="50">50 setiap halaman</option>
+                  <option :value="100">100 setiap halaman</option>
+                </select>
+
+                <button 
+                  type="button" 
+                  class="db-btn-page" 
+                  :disabled="dbPage <= 1" 
+                  @click="dbPage--; loadTableData()"
+                >
+                  <i class="fa-solid fa-chevron-left"></i> Sebelum
+                </button>
+                <span class="db-page-indicator" style="font-size: 13px; font-weight: 600;">
+                  {{ dbPage }} / {{ dbTotalPages }}
+                </span>
+                <button 
+                  type="button" 
+                  class="db-btn-page" 
+                  :disabled="dbPage >= dbTotalPages" 
+                  @click="dbPage++; loadTableData()"
+                >
+                  Seterusnya <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Submode 2: SQL Console -->
+        <div v-else-if="dbSubMode === 'sql'" class="db-sql-container">
+          <section class="card db-sql-card">
+            <h2><i class="fa-solid fa-terminal"></i> Konsol SQL Interaktif</h2>
+            <p class="muted">Laksanakan sebarang pertanyaan SELECT atau pengubahsuaian skema terus pada SQLite.</p>
+
+            <!-- Presets Bar -->
+            <div class="db-sql-presets-row">
+              <span class="muted" style="font-size: 12px; font-weight: 600;">Templat Pantas:</span>
+              <button 
+                type="button" 
+                class="db-preset-pill" 
+                @click="setSqlTemplate('SELECT * FROM reports ORDER BY id DESC LIMIT 15;')"
+              >
+                15 Aduan Terkini
+              </button>
+              <button 
+                type="button" 
+                class="db-preset-pill" 
+                @click="setSqlTemplate('SELECT building, COUNT(*) AS jumlah, SUM(CASE WHEN status=\'selesai\' THEN 1 ELSE 0 END) AS selesai FROM reports GROUP BY building;')"
+              >
+                Statistik Bangunan
+              </button>
+              <button 
+                type="button" 
+                class="db-preset-pill" 
+                @click="setSqlTemplate('SELECT key, value FROM settings;')"
+              >
+                Semua Tetapan
+              </button>
+              <button 
+                type="button" 
+                class="db-preset-pill" 
+                @click="setSqlTemplate('SELECT name, sql FROM sqlite_master WHERE type=\'table\';')"
+              >
+                Struktur Semua Jadual
+              </button>
+              <button 
+                type="button" 
+                class="db-preset-pill" 
+                @click="setSqlTemplate('PRAGMA integrity_check;')"
+              >
+                Semak Integriti DB
+              </button>
+            </div>
+
+            <!-- SQL Text Editor -->
+            <div class="db-sql-editor-box">
+              <textarea 
+                class="db-sql-textarea" 
+                v-model="sqlQuery" 
+                @keydown.ctrl.enter.prevent="executeSql"
+                @keydown.meta.enter.prevent="executeSql"
+                rows="5"
+                placeholder="cth: SELECT * FROM reports WHERE status = 'baru';"
+              ></textarea>
+
+              <div class="db-sql-actions-bar">
+                <span class="db-shortcut-hint">
+                  Tekan <kbd>Ctrl</kbd> + <kbd>Enter</kbd> atau <kbd>Cmd</kbd> + <kbd>Enter</kbd> untuk jalankan.
+                </span>
+
+                <div class="db-sql-btns">
+                  <button type="button" class="btn-db-action" @click="sqlQuery = ''">
+                    <i class="fa-solid fa-trash-can"></i> Kosongkan
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn-db-action primary" 
+                    :disabled="sqlExecuting || !sqlQuery.trim()" 
+                    @click="executeSql"
+                  >
+                    <i class="fa-solid fa-bolt" :class="{ 'fa-spin': sqlExecuting }"></i>
+                    {{ sqlExecuting ? 'Melaksanakan...' : 'Jalankan Query' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SQL Results Panel -->
+          <section class="card db-sql-results-card" v-if="sqlResult || sqlError">
+            <div class="db-sql-status-bar">
+              <div v-if="sqlResult">
+                <span class="db-status-tag success" v-if="sqlResult.type === 'select'">
+                  <i class="fa-solid fa-circle-check"></i>
+                  Berjaya! {{ sqlResult.durationMs }}ms • {{ sqlResult.rowCount }} baris dijumpai
+                </span>
+                <span class="db-status-tag mutation" v-else>
+                  <i class="fa-solid fa-circle-check"></i>
+                  Berjaya! {{ sqlResult.durationMs }}ms • {{ sqlResult.changes }} baris terjejas (lastInsertRowid: {{ sqlResult.lastInsertRowid || '-' }})
+                </span>
+              </div>
+
+              <div class="db-actions-toolbar" v-if="sqlResult && sqlResult.type === 'select' && sqlResult.rows.length">
+                <button type="button" class="btn-db-action" @click="exportSqlResult('csv')">
+                  <i class="fa-solid fa-file-csv"></i> Eksport CSV
+                </button>
+                <button type="button" class="btn-db-action" @click="exportSqlResult('json')">
+                  <i class="fa-solid fa-file-code"></i> Eksport JSON
+                </button>
+              </div>
+            </div>
+
+            <!-- Error Alert -->
+            <div class="db-error-alert" v-if="sqlError">
+              <i class="fa-solid fa-triangle-exclamation" style="font-size: 16px; margin-top: 2px;"></i>
+              <div>
+                <strong>Ralat Pelaksanaan SQL:</strong>
+                <div style="margin-top: 4px;">{{ sqlError }}</div>
+              </div>
+            </div>
+
+            <!-- Results Table for SELECT -->
+            <div class="db-table-wrapper" v-if="sqlResult && sqlResult.type === 'select'">
+              <table class="db-grid" v-if="sqlResult.rows.length > 0">
+                <thead>
+                  <tr>
+                    <th style="width: 44px; text-align: center;">#</th>
+                    <th v-for="col in sqlResult.columns" :key="col">
+                      {{ col }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rIdx) in sqlResult.rows" :key="rIdx">
+                    <td style="color: var(--muted); text-align: center; font-size: 12px;">{{ rIdx + 1 }}</td>
+                    <td v-for="col in sqlResult.columns" :key="col">
+                      <span class="db-cell-null" v-if="row[col] === null || row[col] === undefined">null</span>
+                      <span class="db-cell-mono" v-else>{{ String(row[col]) }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <p v-else class="muted" style="text-align: center; padding: 24px;">
+                Pertanyaan berjaya dilaksanakan, tiada baris rekod dikembalikan.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Modal Create Table -->
+      <div class="modal-overlay" v-if="showCreateTableModal" @click.self="showCreateTableModal = false">
+        <div class="card modal-card create-table-modal-card">
+          <div class="modal-header">
+            <h2><i class="fa-solid fa-plus-circle"></i> Cipta Jadual Baru</h2>
+            <button type="button" class="btn-close-modal" @click="showCreateTableModal = false"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <p class="muted" style="margin-bottom: 16px;">
+            Bina jadual baru SQLite dengan mudah. Selepas dicipta, jadual akan muncul secara automatik dalam DB Viewer.
+          </p>
+
+          <form @submit.prevent="submitCreateTable">
+            <label style="margin-top: 0;">Nama Jadual
+              <input type="text" v-model="newTableForm.name" required placeholder="cth: inventory / feedback / notices" />
+            </label>
+
+            <div style="margin-top: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <label style="margin: 0;">Kolum Jadual</label>
+                <button type="button" class="btn-db-action" @click="addColumnToNewTable">
+                  <i class="fa-solid fa-plus"></i> Tambah Kolum
+                </button>
+              </div>
+
+              <div class="col-builder-header">
+                <div>Nama Kolum</div>
+                <div>Jenis Data</div>
+                <div>PK</div>
+                <div>Wajib</div>
+                <div></div>
+              </div>
+
+              <div class="col-builder-row" v-for="(col, cIdx) in newTableForm.columns" :key="cIdx">
+                <input type="text" v-model="col.name" required placeholder="nama_kolum" />
+                <select v-model="col.type">
+                  <option value="INTEGER">INTEGER</option>
+                  <option value="TEXT">TEXT</option>
+                  <option value="REAL">REAL</option>
+                  <option value="BLOB">BLOB</option>
+                </select>
+                <div style="text-align: center;">
+                  <input type="checkbox" v-model="col.pk" style="width: auto; margin: 0;" />
+                </div>
+                <div style="text-align: center;">
+                  <input type="checkbox" v-model="col.notnull" style="width: auto; margin: 0;" />
+                </div>
+                <div>
+                  <button 
+                    type="button" 
+                    class="btn-remove-col" 
+                    v-if="newTableForm.columns.length > 1" 
+                    @click="removeColumnFromNewTable(cIdx)" 
+                    title="Padam Kolum"
+                  >
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- SQL Preview -->
+            <label style="margin-top: 14px;">Pratonton SQL:
+              <div class="sql-preview-box">{{ generateCreateTableSql() }}</div>
+            </label>
+
+            <p class="error" v-if="createTableError">{{ createTableError }}</p>
+
+            <div class="modal-footer" style="margin-top: 20px;">
+              <button type="button" class="btn btn-secondary" @click="showCreateTableModal = false">Batal</button>
+              <button class="btn btn-primary" :disabled="createTableBusy || !newTableForm.name.trim()">
+                <i class="fa-solid fa-check"></i> Cipta Jadual Sekarang
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Modal Add Recipient -->
       <div class="modal-overlay" v-if="showAddRecipientModal" @click.self="showAddRecipientModal = false">
         <div class="card modal-card">
@@ -378,6 +905,43 @@
         const settingsError = ref("");
         const settingsSuccess = ref("");
         const logoFile = ref(null);
+
+        // --- DB Viewer (Database Client Web) State -------------------------
+        const dbOverview = ref({ version: "", dbPath: "", fileSize: 0, journalMode: "", tables: [] });
+        const dbLoading = ref(false);
+        const dbSubMode = ref("browser"); // 'browser' or 'sql'
+        const dbTableFilter = ref("");
+        const dbSelectedTable = ref("");
+        const dbTableSearch = ref("");
+        const dbTableSchema = ref([]);
+        const dbTableIndexes = ref([]);
+        const dbTableRows = ref([]);
+        const dbTableTotalRows = ref(0);
+        const dbPage = ref(1);
+        const dbLimit = ref(25);
+        const dbTotalPages = ref(1);
+        const dbSortCol = ref("");
+        const dbSortOrder = ref("DESC");
+        const showSchemaDrawer = ref(false);
+        const revealedPasswords = ref({});
+
+        // SQL Console state
+        const sqlQuery = ref("SELECT * FROM reports ORDER BY id DESC LIMIT 15;");
+        const sqlExecuting = ref(false);
+        const sqlResult = ref(null);
+        const sqlError = ref("");
+
+        // Create Table Modal state
+        const showCreateTableModal = ref(false);
+        const createTableBusy = ref(false);
+        const createTableError = ref("");
+        const newTableForm = reactive({
+          name: "",
+          columns: [
+            { name: "id", type: "INTEGER", pk: true, notnull: true },
+            { name: "title", type: "TEXT", pk: false, notnull: true }
+          ]
+        });
         const bgFile = ref(null);
         const tempLogoPreview = ref("");
         const tempBgPreview = ref("");
@@ -919,6 +1483,244 @@
           await fetchSettings();
         });
 
+        // --- DB Viewer Methods --------------------------------------------
+        const filteredDbTables = Vue.computed(() => {
+          if (!dbOverview.value.tables) return [];
+          const filter = dbTableFilter.value.trim().toLowerCase();
+          if (!filter) return dbOverview.value.tables;
+          return dbOverview.value.tables.filter((t) => t.name.toLowerCase().includes(filter));
+        });
+
+        async function switchToDbTab() {
+          activeTab.value = "db";
+          await loadDbOverview();
+        }
+
+        async function loadDbOverview() {
+          try {
+            dbLoading.value = true;
+            const res = await fetch("/api/db/overview");
+            if (!res.ok) throw new Error("Gagal mengambil maklumat pangkalan data");
+            const data = await res.json();
+            dbOverview.value = data;
+
+            if (data.tables && data.tables.length > 0) {
+              const currentStillExists = data.tables.some((t) => t.name === dbSelectedTable.value);
+              if (!dbSelectedTable.value || !currentStillExists) {
+                const preferred = data.tables.find((t) => t.name === "reports") || data.tables[0];
+                await selectTable(preferred.name);
+              }
+            }
+          } catch (err) {
+            console.error(err);
+          } finally {
+            dbLoading.value = false;
+          }
+        }
+
+        async function selectTable(tableName) {
+          dbSelectedTable.value = tableName;
+          dbPage.value = 1;
+          dbTableSearch.value = "";
+          dbSortCol.value = "";
+          dbSortOrder.value = "DESC";
+          revealedPasswords.value = {};
+          await loadTableData();
+        }
+
+        let searchDebounceTimer = null;
+        function debounceTableSearch() {
+          clearTimeout(searchDebounceTimer);
+          searchDebounceTimer = setTimeout(() => {
+            dbPage.value = 1;
+            loadTableData();
+          }, 350);
+        }
+
+        async function loadTableData() {
+          if (!dbSelectedTable.value) return;
+          try {
+            dbLoading.value = true;
+            const params = new URLSearchParams({
+              page: dbPage.value,
+              limit: dbLimit.value,
+              sort: dbSortCol.value,
+              order: dbSortOrder.value,
+              search: dbTableSearch.value.trim()
+            });
+
+            const res = await fetch(`/api/db/table/${encodeURIComponent(dbSelectedTable.value)}?${params}`);
+            if (!res.ok) throw new Error("Gagal mengambil data jadual");
+            const data = await res.json();
+
+            dbTableSchema.value = data.schema || [];
+            dbTableIndexes.value = data.indexes || [];
+            dbTableRows.value = data.rows || [];
+            dbTableTotalRows.value = data.totalRows || 0;
+            dbTotalPages.value = data.totalPages || 1;
+
+            if (!dbSortCol.value && data.schema.length) {
+              dbSortCol.value = data.schema.some((c) => c.name === "id") ? "id" : data.schema[0].name;
+            }
+          } catch (err) {
+            console.error(err);
+          } finally {
+            dbLoading.value = false;
+          }
+        }
+
+        function toggleSort(colName) {
+          if (dbSortCol.value === colName) {
+            dbSortOrder.value = dbSortOrder.value === "ASC" ? "DESC" : "ASC";
+          } else {
+            dbSortCol.value = colName;
+            dbSortOrder.value = "ASC";
+          }
+          dbPage.value = 1;
+          loadTableData();
+        }
+
+        function exportTable(format) {
+          if (!dbSelectedTable.value) return;
+          window.location.href = `/api/db/export/${encodeURIComponent(dbSelectedTable.value)}?format=${format}`;
+        }
+
+        async function executeSql() {
+          const sql = sqlQuery.value.trim();
+          if (!sql) return;
+          sqlExecuting.value = true;
+          sqlError.value = "";
+          sqlResult.value = null;
+
+          try {
+            const res = await fetch("/api/db/query", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sql })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error || "Ralat melaksanakan pertanyaan SQL.");
+            }
+            sqlResult.value = data;
+
+            // If query changed structure or rows, refresh overview in background
+            if (data.type === "mutation" || /CREATE|DROP|ALTER/i.test(sql)) {
+              await loadDbOverview();
+              if (dbSelectedTable.value) await loadTableData();
+            }
+          } catch (err) {
+            sqlError.value = err.message;
+          } finally {
+            sqlExecuting.value = false;
+          }
+        }
+
+        function setSqlTemplate(tmpl) {
+          sqlQuery.value = tmpl;
+        }
+
+        function exportSqlResult(format) {
+          if (!sqlResult.value || !sqlResult.value.rows || !sqlResult.value.rows.length) return;
+          const rows = sqlResult.value.rows;
+
+          if (format === "csv") {
+            const headers = Object.keys(rows[0]);
+            const lines = [headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(",")];
+            for (const r of rows) {
+              lines.push(headers.map((h) => `"${String(r[h] ?? "").replace(/"/g, '""')}"`).join(","));
+            }
+            const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `query_result_${Date.now()}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } else {
+            const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `query_result_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        }
+
+        function formatBytes(bytes) {
+          if (!bytes || bytes === 0) return "0 B";
+          const k = 1024;
+          const sizes = ["B", "KB", "MB", "GB"];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+        }
+
+        function openCreateTableModal() {
+          createTableError.value = "";
+          newTableForm.name = "";
+          newTableForm.columns = [
+            { name: "id", type: "INTEGER", pk: true, notnull: true },
+            { name: "title", type: "TEXT", pk: false, notnull: true }
+          ];
+          showCreateTableModal.value = true;
+        }
+
+        function addColumnToNewTable() {
+          newTableForm.columns.push({ name: "", type: "TEXT", pk: false, notnull: false });
+        }
+
+        function removeColumnFromNewTable(idx) {
+          newTableForm.columns.splice(idx, 1);
+        }
+
+        function generateCreateTableSql() {
+          const tblName = (newTableForm.name || "nama_jadual").trim().replace(/[^a-zA-Z0-9_]/g, "");
+          const colsSql = newTableForm.columns
+            .filter((c) => c.name.trim())
+            .map((c) => {
+              const safeName = c.name.trim().replace(/[^a-zA-Z0-9_]/g, "");
+              const pk = c.pk ? " PRIMARY KEY" + (c.type === "INTEGER" ? " AUTOINCREMENT" : "") : "";
+              const notnull = c.notnull ? " NOT NULL" : "";
+              return `  ${safeName} ${c.type}${pk}${notnull}`;
+            });
+
+          if (!colsSql.length) return `-- Sila tambah sekurang-kurangnya satu kolum`;
+          return `CREATE TABLE IF NOT EXISTS ${tblName} (\n${colsSql.join(",\n")}\n);`;
+        }
+
+        async function submitCreateTable() {
+          createTableError.value = "";
+          const sql = generateCreateTableSql();
+          if (sql.startsWith("--")) {
+            createTableError.value = "Sila lengkapkan nama jadual dan sekurang-kurangnya satu kolum.";
+            return;
+          }
+
+          createTableBusy.value = true;
+          try {
+            const res = await fetch("/api/db/query", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sql })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gagal mencipta jadual.");
+
+            showCreateTableModal.value = false;
+            await loadDbOverview();
+            const createdName = newTableForm.name.trim();
+            if (createdName) {
+              dbSubMode.value = "browser";
+              await selectTable(createdName);
+            }
+          } catch (err) {
+            createTableError.value = err.message;
+          } finally {
+            createTableBusy.value = false;
+          }
+        }
+
         return { 
           reports, 
           stats, 
@@ -961,7 +1763,50 @@
           toggleShareMenu,
           getWhatsAppLink,
           getEmailLink,
-          printReport
+          printReport,
+          // DB Viewer properties
+          dbOverview,
+          dbLoading,
+          dbSubMode,
+          dbTableFilter,
+          filteredDbTables,
+          dbSelectedTable,
+          dbTableSearch,
+          dbTableSchema,
+          dbTableIndexes,
+          dbTableRows,
+          dbTableTotalRows,
+          dbPage,
+          dbLimit,
+          dbTotalPages,
+          dbSortCol,
+          dbSortOrder,
+          showSchemaDrawer,
+          revealedPasswords,
+          switchToDbTab,
+          loadDbOverview,
+          selectTable,
+          debounceTableSearch,
+          loadTableData,
+          toggleSort,
+          exportTable,
+          sqlQuery,
+          sqlExecuting,
+          sqlResult,
+          sqlError,
+          executeSql,
+          setSqlTemplate,
+          exportSqlResult,
+          formatBytes,
+          showCreateTableModal,
+          createTableBusy,
+          createTableError,
+          newTableForm,
+          openCreateTableModal,
+          addColumnToNewTable,
+          removeColumnFromNewTable,
+          generateCreateTableSql,
+          submitCreateTable
         };
       },
     }).mount("#app");
